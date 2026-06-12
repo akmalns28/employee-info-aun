@@ -1,0 +1,77 @@
+services:
+  web:
+    build:
+      context: .
+      target: web
+    image: profile-karyawan-web:latest
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8080}:80"
+    depends_on:
+      - app
+    volumes:
+      - app-storage:/var/www/html/storage:ro
+    networks:
+      - profile-karyawan
+
+  app:
+    build:
+      context: .
+      target: app
+    image: profile-karyawan-app:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: ${DOCKER_APP_ENV:-production}
+      APP_DEBUG: ${DOCKER_APP_DEBUG:-false}
+      APP_URL: ${DOCKER_APP_URL:-http://localhost:8080}
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: ${DOCKER_DB_DATABASE:-db_SIKaryawan}
+      DB_USERNAME: ${DOCKER_DB_USERNAME:-laravel}
+      DB_PASSWORD: ${DOCKER_DB_PASSWORD:-secret}
+      WAIT_FOR_DB: "true"
+      RUN_MIGRATIONS: ${RUN_MIGRATIONS:-false}
+      CACHE_CONFIG: ${CACHE_CONFIG:-true}
+      CACHE_VIEWS: ${CACHE_VIEWS:-true}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - app-storage:/var/www/html/storage
+      - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - profile-karyawan
+
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DOCKER_DB_DATABASE:-db_SIKaryawan}
+      MYSQL_USER: ${DOCKER_DB_USERNAME:-laravel}
+      MYSQL_PASSWORD: ${DOCKER_DB_PASSWORD:-secret}
+      MYSQL_ROOT_PASSWORD: ${DOCKER_DB_ROOT_PASSWORD:-rootsecret}
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - profile-karyawan
+
+volumes:
+  app-cache:
+  app-storage:
+  db-data:
+
+networks:
+  profile-karyawan:
+    driver: bridge
