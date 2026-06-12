@@ -217,21 +217,25 @@
 <body>
     <div class="container py-5">
 
-        <div class="mb-3">
-            <label class="form-label">Cari</label>
-            <div class="input-icon">
-                <input type="text" id="search" class="form-control" placeholder="Cari NIP">
+        @auth
 
-                <span class="input-icon-addon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                        fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
-                        <path d="M21 21l-6 -6" />
-                    </svg>
-                </span>
+            <div class="mb-3">
+                <label class="form-label">Cari</label>
+                <div class="input-icon">
+                    <input type="text" id="search" class="form-control" placeholder="Cari NIP">
+
+                    <span class="input-icon-addon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                            fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
+                            <path d="M21 21l-6 -6" />
+                        </svg>
+                    </span>
+                </div>
+                <small id="search-message" class="text-danger d-block mt-2"></small>
             </div>
-            <small id="search-message" class="text-danger d-block mt-2"></small>
-        </div>
+        @endauth
+
 
         <div class="employee-card" id="employee-card">
             <div class="row g-0 align-items-center">
@@ -339,7 +343,8 @@
 
                         @if (
                             (auth()->check() && auth()->user()?->departemen?->departemen == 'Administrasi') ||
-                                auth()->user()?->karyawan?->nip == $dataKaryawan['nip'])
+                                auth()->user()?->karyawan?->nip == $dataKaryawan['nip']
+                        )
                             <div class="info-item" id="employee-alamat-wrapper">
                                 <div class="icon-box">
                                     <i class="bi bi-house-door"></i>
@@ -379,7 +384,7 @@
         const defaultData = @json($dataKaryawan);
         let typingTimer = null;
 
-        searchInput.addEventListener('keyup', function () {
+        searchInput.addEventListener('keyup', function() {
             clearTimeout(typingTimer);
 
             const nip = this.value.trim();
@@ -390,21 +395,21 @@
                 return;
             }
 
-            typingTimer = setTimeout(function () {
+            typingTimer = setTimeout(function() {
                 searchEmployeeByNip(nip);
             }, 500);
         });
 
         function searchEmployeeByNip(nip) {
             fetch(`{{ route('karyawan.idCard') }}?nip=${encodeURIComponent(nip)}`, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                }
-            })
-                .then(async function (response) {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                })
+                .then(async function(response) {
                     const result = await response.json();
 
                     if (!response.ok) {
@@ -413,11 +418,11 @@
 
                     return result;
                 })
-                .then(function (result) {
+                .then(function(result) {
                     searchMessage.textContent = '';
                     fillEmployeeCard(result.data);
                 })
-                .catch(function (error) {
+                .catch(function(error) {
                     searchMessage.textContent = error.message || 'Data karyawan tidak ditemukan.';
                 });
         }

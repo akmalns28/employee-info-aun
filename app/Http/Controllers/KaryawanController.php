@@ -323,15 +323,23 @@ class KaryawanController extends Controller
             ]);
         }
 
-        $karyawan = auth()->user()?->karyawan;
+        $karyawan = null;
 
-        abort_if(!$karyawan, 404, 'Data karyawan login tidak ditemukan.');
+        if ($nip) {
+            $karyawan = Karyawan::with('departemen')->where('nip', $nip)->firstOrFail();
+        } elseif (auth()->check()) {
+            $karyawan = auth()->user()?->karyawan;
 
-        $karyawan->load('departemen');
+            if ($karyawan) {
+                $karyawan->load('departemen');
+            }
+        }
+
+        $dataKaryawan = $karyawan ? $this->formatIdCardData($karyawan) : null;
 
         return view('karyawan.id-card', [
             'karyawan' => $karyawan,
-            'dataKaryawan' => $this->formatIdCardData($karyawan),
+            'dataKaryawan' => $dataKaryawan,
         ]);
     }
 
