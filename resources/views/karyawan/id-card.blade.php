@@ -14,11 +14,66 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
     <style>
         body {
             min-height: 100vh;
             margin: 0;
             font-family: 'Inter', sans-serif;
+        }
+
+        .mini-header {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 12px 16px;
+            margin-bottom: 6px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, .08);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .mini-header-title {
+            color: #0f172a;
+            font-size: 15px;
+            font-weight: 700;
+        }
+
+        .mini-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-mini {
+            border: none;
+            border-radius: 9px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 700;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+
+        .btn-download {
+            background: #2563eb;
+            color: #ffffff;
+        }
+
+        .btn-download:disabled {
+            opacity: .75;
+            cursor: not-allowed;
+        }
+
+        .btn-logout {
+            background: #fee2e2;
+            color: #b91c1c;
         }
 
         .employee-card {
@@ -210,17 +265,52 @@
             .info-value {
                 font-size: 14px;
             }
+
+            .mini-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .mini-header-actions {
+                width: 100%;
+            }
+
+            .btn-mini {
+                flex: 1;
+                justify-content: center;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div class="container py-5">
+    <div class="container py-2">
+
+        <div class="mini-header">
+            <div class="mini-header-title">
+                Informasi Karyawan
+            </div>
+            
+            @auth
+                <div class="mini-header-actions">
+                    <button type="button" id="download-pdf-button" class="btn-mini btn-download">
+                        <i class="bi bi-download"></i>
+                        Download PDF
+                    </button>
+
+                    <form action="{{ route('logout') }}" method="POST" class="m-0">
+                        @csrf
+                        <button type="submit" class="btn-mini btn-logout">
+                            <i class="bi bi-box-arrow-right"></i>
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            @endauth
+        </div>
 
         @auth
-
-            <div class="mb-3">
-                <label class="form-label">Cari</label>
+            <div class="mb-2">
                 <div class="input-icon">
                     <input type="text" id="search" class="form-control" placeholder="Cari NIP">
 
@@ -236,145 +326,142 @@
             </div>
         @endauth
 
+        <div id="print-area">
+            <div class="employee-card" id="employee-card" style="{{ $dataKaryawan ? '' : 'display: none;' }}">
+                <div class="row g-0 align-items-center">
 
-        <div class="employee-card" id="employee-card">
-            <div class="row g-0 align-items-center">
+                    <div class="col-lg-4 profile-border">
+                        <div class="profile-section">
 
-                <div class="col-lg-4 profile-border">
-                    <div class="profile-section">
+                            <div class="avatar-wrapper">
+                                <img src="{{ $dataKaryawan['foto'] ?? '' }}" id="employee-avatar"
+                                    class="employee-avatar" alt="Avatar {{ $dataKaryawan['namaLengkap'] ?? '' }}">
+                            </div>
 
-                        <div class="avatar-wrapper">
-                            <img src="{{ $dataKaryawan['foto'] }}" id="employee-avatar" class="employee-avatar"
-                                alt="Avatar {{ $dataKaryawan['namaLengkap'] }}">
-                        </div>
-
-                        @auth
                             <div class="employee-nip" id="employee-nip">
-                                {{ $dataKaryawan['nip'] }}
+                                {{ $dataKaryawan['nip'] ?? '' }}
                             </div>
-                        @endauth
 
-                        <div class="employee-name" id="employee-name">
-                            {{ $dataKaryawan['namaLengkap'] }}
+                            <div class="employee-name" id="employee-name">
+                                {{ $dataKaryawan['namaLengkap'] ?? '' }}
+                            </div>
+
+                            <div class="employee-position">
+                                <i class="bi bi-briefcase"></i>
+                                <span id="employee-position">{{ $dataKaryawan['jabatan'] ?? '' }}</span>
+                            </div>
+
                         </div>
-
-                        <div class="employee-position">
-                            <i class="bi bi-briefcase"></i>
-                            <span id="employee-position">{{ $dataKaryawan['jabatan'] }}</span>
-                        </div>
-
                     </div>
-                </div>
 
-                <div class="col-lg-8">
-                    <div class="info-section">
+                    <div class="col-lg-8">
+                        <div class="info-section">
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-envelope"></i>
-                            </div>
-                            <div>
-                                <div class="info-label">Email</div>
-                                <div class="info-value" id="employee-email">
-                                    {{ $dataKaryawan['email'] }}
+                            <div class="info-item">
+                                <div class="icon-box">
+                                    <i class="bi bi-envelope"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">Email</div>
+                                    <div class="info-value" id="employee-email">
+                                        {{ $dataKaryawan['email'] ?? '' }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-building"></i>
-                            </div>
-                            <div>
-                                <div class="info-label">Departemen</div>
-                                <div class="info-value" id="employee-departemen">
-                                    {{ $dataKaryawan['departemen'] }}
+                            <div class="info-item">
+                                <div class="icon-box">
+                                    <i class="bi bi-building"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">Departemen</div>
+                                    <div class="info-value" id="employee-departemen">
+                                        {{ $dataKaryawan['departemen'] ?? '' }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-telephone"></i>
-                            </div>
-                            <div>
-                                <div class="info-label">No HP</div>
-                                <div class="info-value" id="employee-no-hp">
-                                    {{ $dataKaryawan['no_hp'] }}
+                            <div class="info-item" id="employee-no-hp-wrapper"
+                                style="{{ $dataKaryawan && ($dataKaryawan['boleh_lihat_alamat'] ?? false) ? '' : 'display: none;' }}">
+                                <div class="icon-box">
+                                    <i class="bi bi-telephone"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">No HP</div>
+                                    <div class="info-value" id="employee-no-hp">
+                                        {{ $dataKaryawan['no_hp'] ?? '' }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-person"></i>
-                            </div>
-                            <div>
-                                <div class="info-label">Jenis Kelamin</div>
-                                <div class="info-value" id="employee-jenis-kelamin">
-                                    {{ $dataKaryawan['jenis_kelamin'] }}
+                            <div class="info-item">
+                                <div class="icon-box">
+                                    <i class="bi bi-person"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">Jenis Kelamin</div>
+                                    <div class="info-value" id="employee-jenis-kelamin">
+                                        {{ $dataKaryawan['jenis_kelamin'] ?? '' }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-geo-alt"></i>
-                            </div>
-                            <div>
-                                <div class="info-label">Tempat Lahir</div>
-                                <div class="info-value" id="employee-tempat-lahir">
-                                    {{ $dataKaryawan['tempat_lahir'] }}
+                            <div class="info-item">
+                                <div class="icon-box">
+                                    <i class="bi bi-geo-alt"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">Tempat Lahir</div>
+                                    <div class="info-value" id="employee-tempat-lahir">
+                                        {{ $dataKaryawan['tempat_lahir'] ?? '' }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-calendar-event"></i>
-                            </div>
-                            <div>
-                                <div class="info-label">Tanggal Lahir</div>
-                                <div class="info-value" id="employee-tgl-lahir">
-                                    {{ $dataKaryawan['tgl_lahir'] }}
+                            <div class="info-item">
+                                <div class="icon-box">
+                                    <i class="bi bi-calendar-event"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">Tanggal Lahir</div>
+                                    <div class="info-value" id="employee-tgl-lahir">
+                                        {{ $dataKaryawan['tgl_lahir'] ?? '' }}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        @if (
-                            (auth()->check() && auth()->user()?->departemen?->departemen == 'Administrasi') ||
-                                auth()->user()?->karyawan?->nip == $dataKaryawan['nip']
-                        )
-                            <div class="info-item" id="employee-alamat-wrapper">
+                            <div class="info-item" id="employee-alamat-wrapper"
+                                style="{{ $dataKaryawan && ($dataKaryawan['boleh_lihat_alamat'] ?? false) ? '' : 'display: none;' }}">
                                 <div class="icon-box">
                                     <i class="bi bi-house-door"></i>
                                 </div>
                                 <div>
                                     <div class="info-label">Alamat</div>
                                     <div class="info-value" id="employee-alamat">
-                                        {{ $dataKaryawan['alamat'] }}
+                                        {{ $dataKaryawan['alamat'] ?? '' }}
                                     </div>
                                 </div>
                             </div>
-                        @endif
 
-                        <div class="info-item">
-                            <div class="icon-box">
-                                <i class="bi bi-check-circle"></i>
+                            <div class="info-item">
+                                <div class="icon-box">
+                                    <i class="bi bi-check-circle"></i>
+                                </div>
+                                <div>
+                                    <div class="info-label">Status</div>
+                                    <span id="employee-status" class="{{ $dataKaryawan['status_class'] ?? '' }}">
+                                        {{ $dataKaryawan['status'] ?? '' }}
+                                    </span>
+                                </div>
                             </div>
-                            <div>
-                                <div class="info-label">Status</div>
-                                <span id="employee-status" class="{{ $dataKaryawan['status_class'] }}">
-                                    {{ $dataKaryawan['status'] }}
-                                </span>
-                            </div>
+
                         </div>
-
                     </div>
-                </div>
 
+                </div>
             </div>
         </div>
+
     </div>
 
     <script>
@@ -382,26 +469,109 @@
         const employeeCard = document.getElementById('employee-card');
         const searchMessage = document.getElementById('search-message');
         const defaultData = @json($dataKaryawan);
+        const baseIdCardUrl = "{{ url('/id-card') }}";
+        const downloadPdfButton = document.getElementById('download-pdf-button');
+
         let typingTimer = null;
 
-        searchInput.addEventListener('keyup', function() {
-            clearTimeout(typingTimer);
+        if (downloadPdfButton) {
+            downloadPdfButton.addEventListener('click', async function() {
+                const printArea = document.getElementById('print-area');
+                const employeeName = document.getElementById('employee-name')?.textContent?.trim() ||
+                    'karyawan';
+                const employeeNip = document.getElementById('employee-nip')?.textContent?.trim() || 'id-card';
 
-            const nip = this.value.trim();
+                if (!printArea || !employeeCard || employeeCard.style.display === 'none') {
+                    return;
+                }
 
-            if (nip.length === 0) {
-                searchMessage.textContent = '';
-                fillEmployeeCard(defaultData);
-                return;
-            }
+                downloadPdfButton.disabled = true;
+                downloadPdfButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Membuat PDF...';
 
-            typingTimer = setTimeout(function() {
-                searchEmployeeByNip(nip);
-            }, 500);
-        });
+                try {
+                    const canvas = await html2canvas(printArea, {
+                        scale: 2,
+                        useCORS: true,
+                        backgroundColor: '#ffffff'
+                    });
+
+                    const imgData = canvas.toDataURL('image/jpeg', 1.0);
+
+                    const {
+                        jsPDF
+                    } = window.jspdf;
+
+                    const pdf = new jsPDF('l', 'mm', 'a4');
+
+                    const pageWidth = pdf.internal.pageSize.getWidth();
+                    const pageHeight = pdf.internal.pageSize.getHeight();
+
+                    const margin = 8;
+                    const maxWidth = pageWidth - margin * 2;
+                    const maxHeight = pageHeight - margin * 2;
+
+                    const imgWidth = canvas.width;
+                    const imgHeight = canvas.height;
+
+                    const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+
+                    const finalWidth = imgWidth * ratio;
+                    const finalHeight = imgHeight * ratio;
+
+                    const x = (pageWidth - finalWidth) / 2;
+                    const y = (pageHeight - finalHeight) / 2;
+
+                    pdf.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight);
+
+                    const fileName = `${employeeNip}-${employeeName}`
+                        .replace(/[^a-zA-Z0-9-_ ]/g, '')
+                        .replace(/\s+/g, '-');
+
+                    pdf.save(`${fileName}.pdf`);
+                } catch (error) {
+                    alert('Gagal membuat PDF.');
+                }
+
+                downloadPdfButton.disabled = false;
+                downloadPdfButton.innerHTML = '<i class="bi bi-download"></i> Download PDF';
+            });
+        }
+
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() {
+                clearTimeout(typingTimer);
+
+                const nip = this.value.trim();
+
+                if (nip.length === 0) {
+                    if (searchMessage) {
+                        searchMessage.textContent = '';
+                    }
+
+                    if (defaultData) {
+                        fillEmployeeCard(defaultData);
+
+                        const defaultUrl = defaultData.nip && defaultData.nip !== '-' ?
+                            `${baseIdCardUrl}/${encodeURIComponent(defaultData.nip)}` :
+                            baseIdCardUrl;
+
+                        window.history.pushState({}, '', defaultUrl);
+                    } else {
+                        employeeCard.style.display = 'none';
+                        window.history.pushState({}, '', baseIdCardUrl);
+                    }
+
+                    return;
+                }
+
+                typingTimer = setTimeout(function() {
+                    searchEmployeeByNip(nip);
+                }, 500);
+            });
+        }
 
         function searchEmployeeByNip(nip) {
-            fetch(`{{ route('karyawan.idCard') }}?nip=${encodeURIComponent(nip)}`, {
+            fetch(`${baseIdCardUrl}?nip=${encodeURIComponent(nip)}`, {
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
@@ -419,11 +589,21 @@
                     return result;
                 })
                 .then(function(result) {
-                    searchMessage.textContent = '';
+                    if (searchMessage) {
+                        searchMessage.textContent = '';
+                    }
+
                     fillEmployeeCard(result.data);
+
+                    window.history.pushState({},
+                        '',
+                        `${baseIdCardUrl}/${encodeURIComponent(result.data.nip)}`
+                    );
                 })
                 .catch(function(error) {
-                    searchMessage.textContent = error.message || 'Data karyawan tidak ditemukan.';
+                    if (searchMessage) {
+                        searchMessage.textContent = error.message || 'Data karyawan tidak ditemukan.';
+                    }
                 });
         }
 
@@ -436,7 +616,6 @@
             document.getElementById('employee-position').textContent = data.jabatan;
             document.getElementById('employee-email').textContent = data.email;
             document.getElementById('employee-departemen').textContent = data.departemen;
-            document.getElementById('employee-no-hp').textContent = data.no_hp;
             document.getElementById('employee-jenis-kelamin').textContent = data.jenis_kelamin;
             document.getElementById('employee-tempat-lahir').textContent = data.tempat_lahir;
             document.getElementById('employee-tgl-lahir').textContent = data.tgl_lahir;
@@ -447,15 +626,38 @@
                 nipElement.textContent = data.nip;
             }
 
+            const noHpWrapper = document.getElementById('employee-no-hp-wrapper');
+            const noHpElement = document.getElementById('employee-no-hp');
+
+            if (noHpWrapper && noHpElement) {
+                if (data.boleh_lihat_alamat) {
+                    noHpWrapper.style.display = 'flex';
+                    noHpElement.textContent = data.no_hp;
+                } else {
+                    noHpWrapper.style.display = 'none';
+                    noHpElement.textContent = '-';
+                }
+            }
+
+            const alamatWrapper = document.getElementById('employee-alamat-wrapper');
             const alamatElement = document.getElementById('employee-alamat');
 
-            if (alamatElement) {
-                alamatElement.textContent = data.alamat;
+            if (alamatWrapper && alamatElement) {
+                if (data.boleh_lihat_alamat) {
+                    alamatWrapper.style.display = 'flex';
+                    alamatElement.textContent = data.alamat;
+                } else {
+                    alamatWrapper.style.display = 'none';
+                    alamatElement.textContent = '-';
+                }
             }
 
             const statusElement = document.getElementById('employee-status');
-            statusElement.textContent = data.status;
-            statusElement.className = data.status_class;
+
+            if (statusElement) {
+                statusElement.textContent = data.status;
+                statusElement.className = data.status_class;
+            }
         }
     </script>
 </body>
