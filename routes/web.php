@@ -17,7 +17,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/', function () {
         return view('dashboard');
     });
-    
+
     Route::post('logout', [GoogleController::class, 'logout'])->name('logout');
     Route::get('dashboard', [HomeController::class, 'dashboard'])->name('dashboard');
 
@@ -28,6 +28,8 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('karyawan', KaryawanController::class)->except('create');
     Route::post('karyawan/get-all-karyawan', [KaryawanController::class, 'getAllKaryawan'])->name('karyawan.getAllKaryawan');
     Route::post('/karyawan/import', [KaryawanController::class, 'import'])->name('karyawan.import');
+    Route::post('/karyawan/export-qrcode', [KaryawanController::class, 'exportQrCode'])->name('karyawan.exportQrCode');
+    Route::post('/karyawan/export-qrcode-zip', [KaryawanController::class, 'exportQrCodeZip'])->name('karyawan.exportQrCodeZip');
 
     Route::resource('departemen', DepartemenController::class)->except(['edit', 'show', 'create']);
     Route::post('departemen/get-all-departemen', [DepartemenController::class, 'getAllDepartemen'])->name('departemen.getAllDepartemen');
@@ -38,5 +40,4 @@ Route::middleware(['auth'])->group(function () {
     Route::post('role/get-all-role', [RoleController::class, 'getAllRole'])->name('role.getAllRole');
 });
 
-Route::get('/id-card/{nip?}', [KaryawanController::class, 'idCard'])
-    ->name('karyawan.idCard');
+Route::get('/id-card/{nip?}', [KaryawanController::class, 'idCard'])->name('karyawan.idCard');

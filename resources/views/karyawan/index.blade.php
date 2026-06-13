@@ -9,6 +9,25 @@
     Karyawan
 @endsection
 
+@push('styles')
+    <style>
+        .export-check-wrapper {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 20;
+            border-radius: 8px;
+            padding: 6px;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, .15);
+        }
+
+        .export-check-wrapper .form-check-input {
+            cursor: pointer;
+            margin: 0;
+        }
+    </style>
+@endpush
+
 @section('content')
     <form id="filterForm">
         <div class="row">
@@ -62,16 +81,67 @@
                 </div>
             </div>
 
+            <div class="col-md-2">
+                <div class="mb-3">
+                    <label class="form-label">Tampilkan</label>
+
+                    <select id="per_page" class="form-select">
+                        <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
+                        <option value="25" {{ request('per_page') == 25 ? 'selected' : '' }}>25</option>
+                        <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                        <option value="100" {{ request('per_page') == 100 ? 'selected' : '' }}>100</option>
+                    </select>
+                </div>
+            </div>
 
         </div>
     </form>
+
+    @php
+        $hasExportQrCodePermission = auth()
+            ->user()
+            ->getAllPermissions()
+            ->pluck('name')
+            ->contains(fn($name) => str_contains($name, 'export qr code'));
+    @endphp
+    @if ($hasExportQrCodePermission)
+        <form action="{{ route('karyawan.exportQrCode') }}" method="POST" target="_blank" id="exportQrCodeForm">
+            @csrf
+            <input type="hidden" name="selected_nips" id="selected_nips">
+
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="fw-bold">
+                    Terpilih: <span id="selected-count">0</span>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary" id="select-all-visible">
+                        Pilih Semua yang Tampil
+                    </button>
+
+                    <button type="button" class="btn btn-outline-secondary" id="clear-selected">
+                        Hapus Pilihan
+                    </button>
+                </div>
+            </div>
+        </form>
+    @endif
 
     <div id="karyawan-container">
 
         <div class="row row-cards">
             @forelse ($karyawans as $karyawan)
                 <div class="col-md-6 col-lg-3">
-                    <div class="card h-100">
+                    <div class="card h-100 position-relative">
+
+                        @if ($hasExportQrCodePermission)
+                            <label class="form-check export-check-wrapper top-0 start-0 m-2">
+                                <input class="form-check-input karyawan-checkbox" type="checkbox"
+                                    value="{{ $karyawan->nip }}"
+                                    data-nama="{{ trim($karyawan->nama_depan . ' ' . $karyawan->nama_belakang) }}">
+                            </label>
+                        @endif
+
                         <div class="card-body p-3 text-center">
 
                             <img src="{{ $karyawan->avatar
@@ -220,8 +290,21 @@
 
     <script>
         $(document).ready(function() {
+            let selectedNips = [];
 
-            let typingTimer;
+            function syncSelectedInput() {
+                $('#selected_nips').val(JSON.stringify(selectedNips));
+                $('#selected-count').text(selectedNips.length);
+            }
+
+            function refreshCheckedState() {
+                $('.karyawan-checkbox').each(function() {
+                    const nip = String($(this).val());
+                    $(this).prop('checked', selectedNips.includes(nip));
+                });
+
+                syncSelectedInput();
+            }
 
             function loadData() {
                 $.ajax({
@@ -230,16 +313,16 @@
                     data: {
                         search: $('#search').val(),
                         departemen_uuid: $('#departemen_uuid').val(),
-                        status: $('#status').val()
+                        status: $('#status').val(),
+                        per_page: $('#per_page').val()
                     },
                     success: function(response) {
-
                         let html = $(response)
                             .find('#karyawan-container')
                             .html();
 
                         $('#karyawan-container').html(html);
-
+                        refreshCheckedState();
                     },
                     error: function(xhr) {
                         console.log(xhr.responseText);
@@ -247,14 +330,67 @@
                 });
             }
 
-            $('#search').on('keyup', function() {
+            $(document).on('click', '.karyawan-checkbox', function(e) {
+                e.stopPropagation();
+            });
 
+            $(document).on('change', '.karyawan-checkbox', function() {
+                const nip = String($(this).val());
+
+                if ($(this).is(':checked')) {
+                    if (!selectedNips.includes(nip)) {
+                        selectedNips.push(nip);
+                    }
+                } else {
+                    selectedNips = selectedNips.filter(item => item !== nip);
+                }
+
+                syncSelectedInput();
+            });
+
+            $('#select-all-visible').on('click', function() {
+                $('.karyawan-checkbox').each(function() {
+                    const nip = String($(this).val());
+
+                    if (!selectedNips.includes(nip)) {
+                        selectedNips.push(nip);
+                    }
+
+                    $(this).prop('checked', true);
+                });
+
+                syncSelectedInput();
+            });
+
+            $('#clear-selected').on('click', function() {
+                selectedNips = [];
+                $('.karyawan-checkbox').prop('checked', false);
+                syncSelectedInput();
+            });
+
+            $(document).on('submit', '#exportQrCodeForm', function(e) {
+                syncSelectedInput();
+
+                if (selectedNips.length === 0) {
+                    e.preventDefault();
+
+                    if (typeof showErrorToast === 'function') {
+                        showErrorToast(
+                            'Pilih minimal satu karyawan untuk export',
+                            `${window.location.origin}/assets/static/icon/error.svg`
+                        );
+                    } else {
+                        alert('Pilih minimal satu karyawan untuk export');
+                    }
+                }
+            });
+
+            $('#search').on('keyup', function() {
                 clearTimeout(typingTimer);
 
                 typingTimer = setTimeout(function() {
                     loadData();
                 }, 500);
-
             });
 
             $('#departemen_uuid').on('change', function() {
@@ -265,6 +401,11 @@
                 loadData();
             });
 
+            $('#per_page').on('change', function() {
+                loadData();
+            });
+
+            refreshCheckedState();
         });
     </script>
 

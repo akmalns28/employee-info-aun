@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
+use ZipArchive;
 
 class KaryawanController extends Controller
 {
@@ -22,35 +23,38 @@ class KaryawanController extends Controller
      */
     public function index(Request $request)
     {
-        $this->checkPermission('karyawan.view');
-
         $departemen = Departemen::orderBy('departemen')->get();
 
-        $query = Karyawan::with('departemen')->orderBy('nama_depan', 'asc');
+        $query = Karyawan::with('departemen');
 
         if ($request->filled('search')) {
             $search = $request->search;
 
             $query->where(function ($q) use ($search) {
-                $q->where('nip', 'like', "%{$search}%")
-                    ->orWhere('nama_depan', 'like', "%{$search}%")
-                    ->orWhere('nama_belakang', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhere('jabatan', 'like', "%{$search}%");
+                $q->where('nip', 'like', '%' . $search . '%')
+                    ->orWhere('nama_depan', 'like', '%' . $search . '%')
+                    ->orWhere('nama_belakang', 'like', '%' . $search . '%')
+                    ->orWhere('email', 'like', '%' . $search . '%');
             });
         }
 
-        if ($request->filled('departemen_uuid') && $request->departemen_uuid != 'all') {
+        if ($request->filled('departemen_uuid') && $request->departemen_uuid !== 'all') {
             $query->where('departemen_uuid', $request->departemen_uuid);
         }
 
-        if ($request->filled('status') && $request->status != 'all') {
+        if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
-        $karyawans = $query->latest()->paginate(12);
+        $perPage = (int) $request->get('per_page', 10);
 
-        return view('karyawan.index', compact('departemen', 'karyawans'));
+        if (!in_array($perPage, [10, 25, 50, 100])) {
+            $perPage = 10;
+        }
+
+        $karyawans = $query->latest()->paginate($perPage)->withQueryString();
+
+        return view('karyawan.index', compact('karyawans', 'departemen'));
     }
 
     /**
@@ -416,5 +420,121 @@ class KaryawanController extends Controller
                 ->back()
                 ->with('error', 'Gagal import data: ' . $th->getMessage());
         }
+    }
+
+    public function exportQrCode(Request $request)
+    {
+        $request->validate([
+            'selected_nips' => ['required', 'string'],
+        ]);
+
+        $nips = json_decode($request->selected_nips, true);
+
+        if (!is_array($nips) || count($nips) === 0) {
+            return back()->with('error', 'Pilih minimal satu karyawan untuk export.');
+        }
+
+        $karyawans = Karyawan::with('departemen')
+            ->whereIn('nip', $nips)
+            ->get()
+            ->sortBy(function ($karyawan) use ($nips) {
+                return array_search($karyawan->nip, $nips);
+            })
+            ->values();
+
+        return view('karyawan.export-qrcode', [
+            'karyawans' => $karyawans,
+            'selectedNips' => $nips,
+        ]);
+    }
+
+    public function exportQrCodeZip(Request $request)
+    {
+        $request->validate([
+            'selected_nips' => ['required', 'string'],
+        ]);
+
+        $nips = json_decode($request->selected_nips, true);
+
+        if (!is_array($nips) || count($nips) === 0) {
+            return back()->with('error', 'Pilih minimal satu karyawan untuk export.');
+        }
+
+        $nips = array_values(array_unique($nips));
+
+        $karyawans = Karyawan::whereIn('nip', $nips)
+            ->get()
+            ->sortBy(function ($karyawan) use ($nips) {
+                return array_search($karyawan->nip, $nips);
+            })
+            ->values();
+
+        $tempDir = storage_path('app/temp');
+
+        if (!file_exists($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $zipFileName = 'qrcode-karyawan-' . now()->format('YmdHis') . '.zip';
+        $zipPath = $zipFileName;
+
+        $zip = new ZipArchive();
+
+        if ($zip->open($zipPath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+            return back()->with('error', 'Gagal membuat file ZIP.');
+        }
+
+        foreach ($karyawans as $karyawan) {
+            if (!$karyawan->qr_code) {
+                continue;
+            }
+
+            $qrPath = storage_path('app/public/' . $karyawan->qr_code);
+
+            if (!file_exists($qrPath)) {
+                continue;
+            }
+
+            $imageContent = file_get_contents($qrPath);
+            $image = imagecreatefromstring($imageContent);
+
+            if (!$image) {
+                continue;
+            }
+
+            $width = imagesx($image);
+            $height = imagesy($image);
+
+            $jpgImage = imagecreatetruecolor($width, $height);
+            $white = imagecolorallocate($jpgImage, 255, 255, 255);
+
+            imagefill($jpgImage, 0, 0, $white);
+            imagecopy($jpgImage, $image, 0, 0, 0, 0, $width, $height);
+
+            ob_start();
+            imagejpeg($jpgImage, null, 95);
+            $jpgContent = ob_get_clean();
+
+            imagedestroy($image);
+            imagedestroy($jpgImage);
+
+            $namaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
+            $fileName = $this->cleanFileName($karyawan->nip . '-' . $namaLengkap) . '.jpg';
+
+            $zip->addFromString($fileName, $jpgContent);
+        }
+
+        $zip->close();
+
+        return response()->download($zipPath)->deleteFileAfterSend(true);
+    }
+
+    private function cleanFileName($name)
+    {
+        $name = preg_replace('/[^A-Za-z0-9\- ]/', '', $name);
+        $name = preg_replace('/\s+/', '-', $name);
+        $name = preg_replace('/-+/', '-', $name);
+
+        return trim($name, '-');
     }
 }
