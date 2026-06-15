@@ -15,7 +15,7 @@ Route::get('auth/google/callback', [GoogleController::class, 'callback']);
 
 Route::middleware(['auth'])->group(function () {
     Route::get('/', function () {
-        return view('dashboard');
+        return redirect()->route('dashboard');
     });
 
     Route::post('logout', [GoogleController::class, 'logout'])->name('logout');

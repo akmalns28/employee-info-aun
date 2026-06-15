@@ -345,11 +345,12 @@
                                         <a href="#tabs-dataDiri-5" class="nav-link active" data-bs-toggle="tab"
                                             aria-selected="true" role="tab">Data Diri</a>
                                     </li>
-                                    <li class="nav-item" role="presentation">
-                                        <a href="#tabs-permission-5" class="nav-link" data-bs-toggle="tab"
-                                            aria-selected="false" role="tab" tabindex="-1">Permission</a>
-                                    </li>
-
+                                    @haspermission('permission.edit')
+                                        <li class="nav-item" role="presentation">
+                                            <a href="#tabs-permission-5" class="nav-link" data-bs-toggle="tab"
+                                                aria-selected="false" role="tab" tabindex="-1">Permission</a>
+                                        </li>
+                                    @endhaspermission
                                 </ul>
                             </div>
                             <div class="card-body">
@@ -359,7 +360,6 @@
                                             <div class="mb-3">
                                                 <div class="mt-2 text-center">
                                                     <img id="edit_avatar_preview"
-                                                        src="{{ asset('assets/static/avatars/default.jpg') }}"
                                                         class="avatar avatar-xl rounded-circle">
                                                 </div>
                                                 <label class="form-label">Avatar</label>
@@ -391,80 +391,82 @@
                                         </div>
                                     </div>
 
-
-                                    <div class="tab-pane" id="tabs-permission-5" role="tabpanel">
-                                        <div>
-                                            {{-- role --}}
-                                            <div class="col-12 mb-3">
-                                                <div class="form-group">
-                                                    <label for="edit_role">Role</label>
-                                                    <select id="edit_role" name="role" class="form-select">
-                                                        <option value="">-- Pilih Role --</option>
-                                                        @foreach ($roles as $role)
-                                                            <option value="{{ $role->name }}">
-                                                                {{ Str::title($role->name) }}
-                                                            </option>
-                                                        @endforeach
-                                                    </select>
-                                                    <small class="text-danger" id="error_role"></small>
+                                    @haspermission('permission.edit')
+                                        <div class="tab-pane" id="tabs-permission-5" role="tabpanel">
+                                            <div>
+                                                {{-- role --}}
+                                                <div class="col-12 mb-3">
+                                                    <div class="form-group">
+                                                        <label for="edit_role">Role</label>
+                                                        <select id="edit_role" name="role" class="form-select">
+                                                            <option value="">-- Pilih Role --</option>
+                                                            @foreach ($roles as $role)
+                                                                <option value="{{ $role->name }}">
+                                                                    {{ Str::title($role->name) }}
+                                                                </option>
+                                                            @endforeach
+                                                        </select>
+                                                        <small class="text-danger" id="error_role"></small>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <!-- Permissions -->
-                                            <div class="col-12">
-                                                <!-- CHECK ALL -->
-                                                <div class="form-check">
-                                                    <input type="checkbox" class="form-check-input"
-                                                        id="editCheckPermissionAll">
-                                                    <label class="form-check-label">All</label>
-                                                </div>
+                                                <!-- Permissions -->
+                                                <div class="col-12">
+                                                    <!-- CHECK ALL -->
+                                                    <div class="form-check">
+                                                        <input type="checkbox" class="form-check-input"
+                                                            id="editCheckPermissionAll">
+                                                        <label class="form-check-label">All</label>
+                                                    </div>
 
-                                                <hr>
+                                                    <hr>
 
-                                                @php $i = 1; @endphp
-                                                @foreach ($permission_groups as $group)
-                                                    <div class="d-flex mb-3">
+                                                    @php $i = 1; @endphp
+                                                    @foreach ($permission_groups as $group)
+                                                        <div class="d-flex mb-3">
 
-                                                        <!-- GROUP -->
-                                                        <div class="col-3">
-                                                            <div class="form-check">
-                                                                <input type="checkbox"
-                                                                    class="form-check-input group-check"
-                                                                    data-group="group-{{ $i }}">
-                                                                <label class="form-check-label">
-                                                                    {{ Str::title($group->name) }}
-                                                                </label>
-                                                            </div>
-                                                        </div>
-
-                                                        <!-- PERMISSIONS -->
-                                                        <div
-                                                            class="d-flex flex-wrap gap-3 col-9 group-{{ $i }}">
-                                                            @php
-                                                                $permissions = App\Http\Controllers\UserController::getpermissionsByGroupName(
-                                                                    $group->name,
-                                                                );
-                                                            @endphp
-
-                                                            @foreach ($permissions as $permission)
-                                                                <div class="form-check form-switch" style="width:100px;">
+                                                            <!-- GROUP -->
+                                                            <div class="col-3">
+                                                                <div class="form-check">
                                                                     <input type="checkbox"
-                                                                        class="form-check-input permission-checkbox"
-                                                                        name="permissions[]"
-                                                                        value="{{ $permission->name }}">
+                                                                        class="form-check-input group-check"
+                                                                        data-group="group-{{ $i }}">
                                                                     <label class="form-check-label">
-                                                                        {{ Str::headline(Str::after($permission->name, '.')) }}
+                                                                        {{ Str::title($group->name) }}
                                                                     </label>
                                                                 </div>
-                                                            @endforeach
+                                                            </div>
+
+                                                            <!-- PERMISSIONS -->
+                                                            <div
+                                                                class="d-flex flex-wrap gap-3 col-9 group-{{ $i }}">
+                                                                @php
+                                                                    $permissions = App\Http\Controllers\UserController::getpermissionsByGroupName(
+                                                                        $group->name,
+                                                                    );
+                                                                @endphp
+
+                                                                @foreach ($permissions as $permission)
+                                                                    <div class="form-check form-switch" style="width:100px;">
+                                                                        <input type="checkbox"
+                                                                            class="form-check-input permission-checkbox"
+                                                                            name="permissions[]"
+                                                                            value="{{ $permission->name }}">
+                                                                        <label class="form-check-label">
+                                                                            {{ Str::headline(Str::after($permission->name, '.')) }}
+                                                                        </label>
+                                                                    </div>
+                                                                @endforeach
+                                                            </div>
+
                                                         </div>
+                                                        @php $i++; @endphp
+                                                    @endforeach
 
-                                                    </div>
-                                                    @php $i++; @endphp
-                                                @endforeach
-
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    @endhaspermission
+
                                 </div>
                             </div>
                         </div>
