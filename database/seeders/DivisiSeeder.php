@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Departemen;
 use App\Models\Divisi;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -14,31 +15,30 @@ class DivisiSeeder extends Seeder
      */
     public function run(): void
     {
-        $divisis = [
-            [
-                'nama_divisi' => 'Support',
-                'kode_divisi' => 'SUP',
-            ],
-            [
-                'nama_divisi' => 'Operation',
-                'kode_divisi' => 'OPS',
-            ],
-            [
-                'nama_divisi' => 'Commercial',
-                'kode_divisi' => 'COM',
-            ],
+        $data = [
+            'IT' => ['IT Support'],
+            'Creative Marketing' => ['Sosial Media Specialist', 'Videografher & Editor', 'Creative Leader', 'Content Creator'],
+            'HRD' => ['Human Resource', 'People Development', 'Personal Admin'],
+            'Administrasi' => ['Sekertaris'],
+            'Keuangan' => ['Collector', 'Admin Finance', 'Purchasing', 'Finance & Accouting', 'Admin Coordinator', 'Finance & Accounting'],
+            'Operasional' => ['Maintenance', 'Operasional', 'Resource And Development', 'GA Operasional', 'Teknisi', 'Sales Respsentative'],
+            'Logistik' => ['Inventory'],
         ];
 
-        foreach ($divisis as $divisi) {
-            Divisi::updateOrCreate(
-                [
-                    'kode_divisi' => $divisi['kode_divisi'],
-                ],
-                [
-                    'uuid' => (string) Str::uuid(),
-                    'nama_divisi' => $divisi['nama_divisi'],
-                ],
-            );
+        foreach ($data as $namaDepartemen => $divisis) {
+            $departemen = Departemen::where('departemen', $namaDepartemen)->firstOrFail();
+
+            foreach ($divisis as $namaDivisi) {
+                Divisi::firstOrCreate(
+                    [
+                        'uuid_departemen' => $departemen->uuid,
+                        'nama_divisi' => $namaDivisi,
+                    ],
+                    [
+                        'uuid' => (string) Str::uuid(),
+                    ],
+                );
+            }
         }
     }
 }

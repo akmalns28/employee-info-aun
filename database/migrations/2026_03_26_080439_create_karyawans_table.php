@@ -14,7 +14,7 @@ return new class extends Migration {
             $table->id();
             $table->uuid('uuid')->unique();
             $table->uuid('user_uuid')->nullable();
-            $table->uuid('departemen_uuid')->nullable();
+            $table->uuid('divisi_uuid')->nullable();
             $table->uuid('uuid_posisi')->nullable();
             $table->text('qr_code')->nullable();
             $table->text('avatar')->nullable();
@@ -32,7 +32,7 @@ return new class extends Migration {
             $table->rememberToken();
             $table->timestamps();
 
-            $table->foreign('departemen_uuid')->references('uuid')->on('departemens')->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreign('divisi_uuid')->references('uuid')->on('divisis')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('user_uuid')->references('uuid')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('uuid_posisi')->references('uuid')->on('posisis')->nullOnDelete();
         });

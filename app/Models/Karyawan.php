@@ -12,7 +12,7 @@ class Karyawan extends Model
 {
     use HasUuid;
 
-    protected $fillable = ['uuid', 'user_uuid', 'uuid_posisi', 'departemen_uuid', 'avatar', 'nip', 'qr_code', 'nama_depan', 'nama_belakang', 'email', 'no_hp', 'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'alamat', 'status'];
+    protected $fillable = ['uuid', 'user_uuid', 'uuid_posisi', 'divisi_uuid', 'avatar', 'nip', 'qr_code', 'nama_depan', 'nama_belakang', 'email', 'no_hp', 'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'alamat', 'status'];
 
     protected function namaLengkap(): Attribute
     {
@@ -29,9 +29,9 @@ class Karyawan extends Model
         return $this->belongsTo(User::class, 'user_uuid');
     }
 
-    public function departemen(): BelongsTo
+    public function divisi(): BelongsTo
     {
-        return $this->belongsTo(Departemen::class, 'uuid_departemen', 'uuid');
+        return $this->belongsTo(Divisi::class, 'divisi_uuid', 'uuid');
     }
 
     public function posisi(): BelongsTo

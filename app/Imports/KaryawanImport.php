@@ -2,8 +2,9 @@
 
 namespace App\Imports;
 
-use App\Models\Departemen;
+use App\Models\Divisi;
 use App\Models\Karyawan;
+use App\Models\Posisi;
 use Carbon\Carbon;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
@@ -44,7 +45,7 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     'nama_depan' => trim((string) ($row['nama_depan'] ?? '')),
                     'nama_belakang' => trim((string) ($row['nama_belakang'] ?? '')),
                     'email' => trim((string) ($row['email'] ?? '')),
-                    'jabatan' => trim((string) ($row['jabatan'] ?? '')),
+                    'posisi' => trim((string) ($row['posisi'] ?? '')),
                     'no_hp' => trim((string) ($row['no_hp'] ?? '')),
                     'jenis_kelamin' => strtolower(trim((string) ($row['jenis_kelamin'] ?? ''))),
                     'tempat_lahir' => trim((string) ($row['tempat_lahir'] ?? '')),
@@ -52,34 +53,22 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     'alamat' => trim((string) ($row['alamat'] ?? '')),
                     'status' => trim((string) ($row['status'] ?? '')),
                     'divisi' => trim((string) ($row['divisi'] ?? '')),
-                    'departemen' => trim((string) ($row['departemen'] ?? '')),
                 ];
 
-                $validator = Validator::make(
-                    $data,
-                    [
-                        'nip' => 'required|string|max:50',
-                        'nama_depan' => 'required|string|max:100',
-                        'email' => 'required|email|max:100',
-                        'nama_belakang' => 'nullable|string|max:100',
-                        'jabatan' => 'nullable|string|max:100',
-                        'no_hp' => 'nullable|string|max:20',
-                        'jenis_kelamin' => 'nullable|in:laki-laki,perempuan',
-                        'tempat_lahir' => 'nullable|string|max:100',
-                        'tgl_lahir' => 'nullable|date',
-                        'alamat' => 'nullable|string',
-                        'status' => 'nullable',
-                        'divisi' => 'nullable|string|max:100',
-                        'departemen' => 'nullable|string|max:100',
-                    ],
-                    [
-                        'nip.required' => 'NIP wajib diisi.',
-                        'nama_depan.required' => 'Nama depan wajib diisi.',
-                        'email.required' => 'Email wajib diisi.',
-                        'email.email' => 'Format email tidak valid.',
-                        'jenis_kelamin.in' => 'Jenis kelamin harus laki-laki atau perempuan.',
-                    ],
-                );
+                $validator = Validator::make($data, [
+                    'nip' => 'required|string|max:50',
+                    'nama_depan' => 'required|string|max:100',
+                    'email' => 'required|email|max:100',
+                    'nama_belakang' => 'nullable|string|max:100',
+                    'posisi' => 'nullable|string|max:100',
+                    'no_hp' => 'nullable|string|max:20',
+                    'jenis_kelamin' => 'nullable|in:laki-laki,perempuan',
+                    'tempat_lahir' => 'nullable|string|max:100',
+                    'tgl_lahir' => 'nullable|date',
+                    'alamat' => 'nullable|string',
+                    'status' => 'nullable',
+                    'divisi' => 'nullable|string|max:100',
+                ]);
 
                 if ($validator->fails()) {
                     $this->errors[] = [
@@ -89,9 +78,13 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     continue;
                 }
 
-                $departemen = null;
-                if (!empty($data['departemen'])) {
-                    $departemen = Departemen::whereRaw('LOWER(departemen) = ?', [strtolower($data['departemen'])])->first();
+                $divisi = null;
+                if (!empty($data['divisi'])) {
+                    $divisi = Divisi::whereRaw('LOWER(nama_divisi) = ?', [strtolower($data['divisi'])])->first();
+                }
+                $posisi = null;
+                if (!empty($data['posisi'])) {
+                    $posisi = Posisi::whereRaw('LOWER(nama_posisi) = ?', [strtolower($data['posisi'])])->first();
                 }
 
                 $status = 1;
@@ -105,12 +98,12 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                 }
 
                 $payload = [
-                    'departemen_uuid' => $departemen?->uuid,
+                    'divisi_uuid' => $divisi?->uuid,
+                    'uuid_posisi' => $posisi?->uuid,
                     'nip' => $data['nip'],
                     'nama_depan' => $data['nama_depan'],
                     'nama_belakang' => $data['nama_belakang'] ?: null,
                     'email' => $data['email'],
-                    'jabatan' => $data['jabatan'] ?: null,
                     'no_hp' => $data['no_hp'] ?: null,
                     'jenis_kelamin' => $data['jenis_kelamin'] ?: null,
                     'tempat_lahir' => $data['tempat_lahir'] ?: null,

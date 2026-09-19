@@ -14,51 +14,23 @@ class PosisiSeeder extends Seeder
      */
     public function run(): void
     {
-        $posisis = [
-            [
-                'nama_posisi' => 'Staff',
-                'kode_posisi' => 'STAFF',
-            ],
-            [
-                'nama_posisi' => 'Admin',
-                'kode_posisi' => 'ADMIN',
-            ],
-            [
-                'nama_posisi' => 'Supervisor',
-                'kode_posisi' => 'SPV',
-            ],
-            [
-                'nama_posisi' => 'Coordinator',
-                'kode_posisi' => 'COORD',
-            ],
-            [
-                'nama_posisi' => 'Manager',
-                'kode_posisi' => 'MGR',
-            ],
-            [
-                'nama_posisi' => 'Head',
-                'kode_posisi' => 'HEAD',
-            ],
-            [
-                'nama_posisi' => 'Assistant Manager',
-                'kode_posisi' => 'AST-MGR',
-            ],
-            [
-                'nama_posisi' => 'Personal Assistant',
-                'kode_posisi' => 'PA',
-            ],
-        ];
+        $data = [['kode_posisi' => 'STAFF', 'nama_posisi' => 'Staff'], ['kode_posisi' => 'MGR', 'nama_posisi' => 'Manager'], ['kode_posisi' => 'AST', 'nama_posisi' => 'Assisten'], ['kode_posisi' => 'LEAD', 'nama_posisi' => 'Leader'], ['kode_posisi' => 'DIR', 'nama_posisi' => 'Direktur'], ['kode_posisi' => 'SPV', 'nama_posisi' => 'SPV']];
 
-        foreach ($posisis as $posisi) {
-            Posisi::updateOrCreate(
-                [
-                    'kode_posisi' => $posisi['kode_posisi'],
-                ],
-                [
-                    'uuid' => (string) Str::uuid(),
-                    'nama_posisi' => $posisi['nama_posisi'],
-                ],
-            );
+        foreach ($data as $item) {
+            $posisi = Posisi::where('kode_posisi', $item['kode_posisi'])->first();
+
+            if ($posisi) {
+                $posisi->update([
+                    'nama_posisi' => $item['nama_posisi'],
+                ]);
+                continue;
+            }
+
+            Posisi::create([
+                'uuid' => (string) Str::uuid(),
+                'kode_posisi' => $item['kode_posisi'],
+                'nama_posisi' => $item['nama_posisi'],
+            ]);
         }
     }
 }

@@ -13,21 +13,22 @@ class DepartemenSeeder extends Seeder
      */
     public function run(): void
     {
-        $departemens = [
-            ['departemen' => 'Direksi', 'kode_departemen' => 'DIR'],
-            ['departemen' => 'Administrasi', 'kode_departemen' => 'ADM'], 
-            ['departemen' => 'Keuangan', 'kode_departemen' => 'KEU'], 
-            ['departemen' => 'Komersial', 'kode_departemen' => 'KOM'], 
-            ['departemen' => 'Operasional Sales', 'kode_departemen' => 'OPS'], 
-            ['departemen' => 'Operasional Produksi', 'kode_departemen' => 'OPP'],
-            ['departemen' => 'Informasi Teknologi', 'kode_departemen' => 'IT']
-            ];
+        $data = [['kode_departemen' => 'IT', 'departemen' => 'IT'], ['kode_departemen' => 'CM', 'departemen' => 'Creative Marketing'], ['kode_departemen' => 'HRD', 'departemen' => 'HRD'], ['kode_departemen' => 'ADM', 'departemen' => 'Administrasi'], ['kode_departemen' => 'KEU', 'departemen' => 'Keuangan'], ['kode_departemen' => 'OPS', 'departemen' => 'Operasional'], ['kode_departemen' => 'LOG', 'departemen' => 'Logistik']];
 
-        foreach ($departemens as $departemen) {
+        foreach ($data as $item) {
+            $departemen = Departemen::where('kode_departemen', $item['kode_departemen'])->first();
+
+            if ($departemen) {
+                $departemen->update([
+                    'departemen' => $item['departemen'],
+                ]);
+                continue;
+            }
+
             Departemen::create([
-                'uuid' => Str::uuid(),
-                'departemen' => $departemen['departemen'],
-                'kode_departemen' => $departemen['kode_departemen'],
+                'uuid' => (string) Str::uuid(),
+                'kode_departemen' => $item['kode_departemen'],
+                'departemen' => $item['departemen'],
             ]);
         }
     }

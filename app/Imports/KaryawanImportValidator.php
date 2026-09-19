@@ -2,8 +2,9 @@
 
 namespace App\Imports;
 
-use App\Models\Departemen;
+use App\Models\Divisi;
 use App\Models\Karyawan;
+use App\Models\Posisi;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Validator;
@@ -75,30 +76,17 @@ class KaryawanImportValidator implements ToCollection, WithHeadingRow
 
             $data = [
                 'nip' => trim((string) ($row['nip'] ?? '')),
-
                 'nama_depan' => trim((string) ($row['nama_depan'] ?? '')),
-
                 'nama_belakang' => trim((string) ($row['nama_belakang'] ?? '')),
-
                 'email' => strtolower(trim((string) ($row['email'] ?? ''))),
-
-                'jabatan' => trim((string) ($row['jabatan'] ?? '')),
-
+                'posisi' => trim((string) ($row['posisi'] ?? '')),
                 'no_hp' => trim((string) ($row['no_hp'] ?? '')),
-
                 'jenis_kelamin' => strtolower(trim((string) ($row['jenis_kelamin'] ?? ''))),
-
                 'tempat_lahir' => trim((string) ($row['tempat_lahir'] ?? '')),
-
                 'tgl_lahir' => $tglLahir,
-
                 'alamat' => trim((string) ($row['alamat'] ?? '')),
-
                 'status' => trim((string) ($row['status'] ?? '')),
-
                 'divisi' => trim((string) ($row['divisi'] ?? '')),
-
-                'departemen' => trim((string) ($row['departemen'] ?? '')),
             ];
 
             /*
@@ -107,47 +95,20 @@ class KaryawanImportValidator implements ToCollection, WithHeadingRow
             |--------------------------------------------------------------------------
             */
 
-            $validator = Validator::make(
-                $data,
-                [
-                    'nip' => 'required|string|max:50',
-
-                    'nama_depan' => 'required|string|max:100',
-
-                    'nama_belakang' => 'nullable|string|max:100',
-
-                    'email' => 'required|email|max:100',
-
-                    'jabatan' => 'nullable|string|max:100',
-
-                    'no_hp' => 'nullable|string|max:20',
-
-                    'jenis_kelamin' => 'nullable|in:laki-laki,perempuan',
-
-                    'tempat_lahir' => 'nullable|string|max:100',
-
-                    'tgl_lahir' => 'nullable|date',
-
-                    'alamat' => 'nullable|string',
-
-                    'status' => 'nullable',
-
-                    'divisi' => 'nullable|string|max:100',
-
-                    'departemen' => 'nullable|string|max:100',
-                ],
-                [
-                    'nip.required' => 'NIP wajib diisi.',
-
-                    'nama_depan.required' => 'Nama depan wajib diisi.',
-
-                    'email.required' => 'Email wajib diisi.',
-
-                    'email.email' => 'Format email tidak valid.',
-
-                    'jenis_kelamin.in' => 'Jenis kelamin harus laki-laki atau perempuan.',
-                ],
-            );
+            $validator = Validator::make($data, [
+                'nip' => 'required|string|max:50',
+                'nama_depan' => 'required|string|max:100',
+                'nama_belakang' => 'nullable|string|max:100',
+                'email' => 'required|email|max:100',
+                'posisi' => 'nullable|string|max:100',
+                'no_hp' => 'nullable|string|max:20',
+                'jenis_kelamin' => 'nullable|in:laki-laki,perempuan',
+                'tempat_lahir' => 'nullable|string|max:100',
+                'tgl_lahir' => 'nullable|date',
+                'alamat' => 'nullable|string',
+                'status' => 'nullable',
+                'divisi' => 'nullable|string|max:100',
+            ]);
 
             if ($validator->fails()) {
                 $rowErrors = array_merge($rowErrors, $validator->errors()->all());
@@ -242,16 +203,24 @@ class KaryawanImportValidator implements ToCollection, WithHeadingRow
             |--------------------------------------------------------------------------
             */
 
-            $departemen = null;
-
-            if (!empty($data['departemen'])) {
-                $departemen = Departemen::whereRaw('LOWER(departemen) = ?', [strtolower($data['departemen'])])->first();
-
-                if (!$departemen) {
-                    $rowErrors[] = 'Departemen "' . $data['departemen'] . '" tidak ditemukan di database.';
+            $divisi = null;
+            if (!empty($data['divisi'])) {
+                $divisi = Divisi::whereRaw('LOWER(nama_divisi) = ?', [strtolower($data['divisi'])])->first();
+                if (!$divisi) {
+                    $rowErrors[] = 'Divisi "' . $data['divisi'] . '" tidak ditemukan di database.';
                 }
             } else {
-                $rowWarnings[] = 'Departemen kosong.';
+                $rowWarnings[] = 'Divisi kosong.';
+            }
+
+            $posisi = null;
+            if (!empty($data['posisi'])) {
+                $posisi = Posisi::whereRaw('LOWER(nama_posisi) = ?', [strtolower($data['posisi'])])->first();
+                if (!$posisi) {
+                    $rowErrors[] = 'Posisi "' . $data['posisi'] . '" tidak ditemukan di database.';
+                }
+            } else {
+                $rowWarnings[] = 'Posisi kosong.';
             }
 
             /*
@@ -356,14 +325,12 @@ class KaryawanImportValidator implements ToCollection, WithHeadingRow
                 'nip' => $data['nip'],
                 'nama_lengkap' => $namaLengkap,
                 'email' => $data['email'],
-                'departemen' => $data['departemen'],
+                'divisi' => $data['divisi'],
+                'posisi' => $data['posisi'],
                 'slug' => $slugNama,
                 'action' => $action,
-
                 'valid' => count($rowErrors) === 0,
-
                 'errors' => $rowErrors,
-
                 'warnings' => $rowWarnings,
             ];
         }

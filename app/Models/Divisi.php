@@ -9,18 +9,15 @@ class Divisi extends Model
 {
     use HasUuid;
 
-    protected $fillable = [
-        'uuid',
-        'uuid_departemen',
-        'nama_divisi',
-    ];
+    protected $fillable = ['uuid', 'uuid_departemen', 'nama_divisi'];
 
     public function departemen()
     {
-        return $this->belongsTo(
-            Departemen::class,
-            'uuid_departemen',
-            'uuid'
-        );
+        return $this->belongsTo(Departemen::class, 'uuid_departemen', 'uuid');
+    }
+
+    public function divisi()
+    {
+        return $this->hasMany(Divisi::class, 'divisi_uuid', 'uuid');
     }
 }
