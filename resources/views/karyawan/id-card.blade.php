@@ -331,7 +331,19 @@
 
                             <div class="employee-position">
                                 <i class="bi bi-briefcase"></i>
-                                <span id="employee-position">{{ $dataKaryawan['jabatan'] ?? '' }}</span>
+                                <span id="employee-position">
+                                    {{ $dataKaryawan['posisi'] ?? '-' }}
+                                </span>
+                            </div>
+
+                            <div class="mt-2 text-secondary">
+                                <span id="employee-departemen">
+                                    {{ $dataKaryawan['departemen'] ?? '-' }}
+                                </span>
+                                <span class="mx-1">•</span>
+                                <span id="employee-divisi">
+                                    {{ $dataKaryawan['divisi'] ?? '-' }}
+                                </span>
                             </div>
 
                         </div>
@@ -348,18 +360,6 @@
                                     <div class="info-label">Email</div>
                                     <div class="info-value" id="employee-email">
                                         {{ $dataKaryawan['email'] ?? '' }}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="info-item">
-                                <div class="icon-box">
-                                    <i class="bi bi-building"></i>
-                                </div>
-                                <div>
-                                    <div class="info-label">Departemen</div>
-                                    <div class="info-value" id="employee-departemen">
-                                        {{ $dataKaryawan['departemen'] ?? '' }}
                                     </div>
                                 </div>
                             </div>

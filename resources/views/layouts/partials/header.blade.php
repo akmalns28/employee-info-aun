@@ -9,26 +9,6 @@
             <div class="col-auto ms-auto d-print-none">
                 <div class="btn-list">
 
-                     @php
-                        $hasExportQrCodePermission = auth()
-                            ->user()
-                            ->getAllPermissions()
-                            ->pluck('name')
-                            ->contains(fn($name) => str_contains($name, 'export qr code'));
-                    @endphp
-                    @if (Route::is('karyawan.index')&& $hasExportQrCodePermission)
-                        <form action="{{ route('karyawan.exportQrCode') }}" method="POST" target="_blank"
-                            id="exportQrCodeForm" class="d-inline-flex align-items-center gap-2">
-                            @csrf
-
-                            <input type="hidden" name="selected_nips" id="selected_nips">
-
-                            <button type="submit" class="btn btn-success">
-                                Export Qr Code
-                            </button>
-                        </form>
-                    @endif
-
                     <button
                         class="btn ms-1 btn-sm btn-secondary {{ Route::is('karyawan.*', 'dashboard') ? 'd-none' : 'd-block' }}"
                         id="refreshData">

@@ -27,6 +27,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('lengkapi-data', [UserController::class, 'editProfile'])->name('pendaftaran.lengkapi');
     Route::post('lengkapi-data', [UserController::class, 'updateProfile'])->name('pendaftaran.update');
     Route::post('user/get-all-user', [UserController::class, 'getAllUser'])->name('user.getAllUser');
+    
+    Route::delete('/karyawan/bulk-delete', [KaryawanController::class, 'bulkDestroy'])->name('karyawan.bulkDestroy');
     Route::resource('karyawan', KaryawanController::class)->except('create');
     Route::post('karyawan/get-all-karyawan', [KaryawanController::class, 'getAllKaryawan'])->name('karyawan.getAllKaryawan');
     Route::post('/karyawan/import', [KaryawanController::class, 'import'])->name('karyawan.import');
