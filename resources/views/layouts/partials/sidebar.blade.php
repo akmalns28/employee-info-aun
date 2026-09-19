@@ -65,6 +65,7 @@
                                         </a>
                                     @endif
                                     
+                                    
 
                                     @if ($user->hasPermissionTo('role.view') || $user->hasAnyRole(['super admin']))
                                         <a class="dropdown-item {{ Route::is('role*') ? 'active' : '' }}"
@@ -79,6 +80,14 @@
                                             Departemen
                                         </a>
                                     @endif
+
+                                     {{-- @if ($user->hasPermissionTo('posisi.view') || $user->hasAnyRole(['super admin'])) --}}
+
+                                    <a class="dropdown-item {{ Route::is('posisi*') ? 'active' : '' }}"
+                                            href="{{ route('posisi.index') }}">
+                                            Posisi
+                                        </a>
+                                    {{-- @endif --}}
 
                                     @if ($user->hasPermissionTo('user.view') || $user->hasAnyRole(['super admin', 'admin']))
                                         <a class="dropdown-item {{ Route::is('user*') ? 'active' : '' }}"

@@ -13,7 +13,15 @@ class DepartemenSeeder extends Seeder
      */
     public function run(): void
     {
-        $departemens = [['departemen' => 'Direksi', 'kode_departemen' => 'DIR'], ['departemen' => 'Administrasi', 'kode_departemen' => 'ADM'], ['departemen' => 'Keuangan', 'kode_departemen' => 'KEU'], ['departemen' => 'Komersial', 'kode_departemen' => 'KOM'], ['departemen' => 'Operasional Sales', 'kode_departemen' => 'OPS'], ['departemen' => 'Operasional Produksi', 'kode_departemen' => 'OPP']];
+        $departemens = [
+            ['departemen' => 'Direksi', 'kode_departemen' => 'DIR'],
+            ['departemen' => 'Administrasi', 'kode_departemen' => 'ADM'], 
+            ['departemen' => 'Keuangan', 'kode_departemen' => 'KEU'], 
+            ['departemen' => 'Komersial', 'kode_departemen' => 'KOM'], 
+            ['departemen' => 'Operasional Sales', 'kode_departemen' => 'OPS'], 
+            ['departemen' => 'Operasional Produksi', 'kode_departemen' => 'OPP'],
+            ['departemen' => 'Informasi Teknologi', 'kode_departemen' => 'IT']
+            ];
 
         foreach ($departemens as $departemen) {
             Departemen::create([

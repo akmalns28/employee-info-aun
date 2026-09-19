@@ -6,6 +6,7 @@ use App\Imports\KaryawanImport;
 use App\Imports\KaryawanImportValidator;
 use App\Models\Departemen;
 use App\Models\Karyawan;
+use App\Models\Posisi;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 use Illuminate\Http\Request;
@@ -25,8 +26,9 @@ class KaryawanController extends Controller
     public function index(Request $request)
     {
         $departemen = Departemen::orderBy('departemen')->get();
+        $posisi = Posisi::orderBy('nama_posisi')->get();
 
-        $query = Karyawan::with('departemen');
+        $query = Karyawan::with(['departemen', 'posisi']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -55,7 +57,7 @@ class KaryawanController extends Controller
 
         $karyawans = $query->latest()->paginate($perPage)->withQueryString();
 
-        return view('karyawan.index', compact('karyawans', 'departemen'));
+        return view('karyawan.index', compact('karyawans', 'departemen', 'posisi'));
     }
 
     /**
@@ -78,6 +80,7 @@ class KaryawanController extends Controller
         try {
             $request->validate([
                 'departemen_uuid' => 'nullable|exists:departemens,uuid',
+                'uuid_posisi' => 'nullable|exists:posisis,uuid',
                 'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
                 'nip' => 'required|string|max:50|unique:karyawans,nip',
                 'nama_depan' => 'required|string|max:100',
@@ -92,31 +95,18 @@ class KaryawanController extends Controller
             ]);
 
             $uuid = (string) Str::uuid();
-
-            /*
-        |--------------------------------------------------------------------------
-        | Upload Avatar
-        |--------------------------------------------------------------------------
-        */
-
             $avatarPath = null;
 
             if ($request->hasFile('avatar')) {
                 $avatarPath = $request->file('avatar')->store('avatar/karyawan', 'public');
             }
 
-            /*
-        |--------------------------------------------------------------------------
-        | Simpan Karyawan
-        |--------------------------------------------------------------------------
-        */
-
             $karyawan = Karyawan::create([
                 'uuid' => $uuid,
                 'departemen_uuid' => $request->departemen_uuid,
+                'uuid_posisi' => $request->uuid_posisi,
                 'avatar' => $avatarPath,
                 'nip' => $request->nip,
-                'jabatan' => $request->jabatan,
                 'nama_depan' => $request->nama_depan,
                 'nama_belakang' => $request->nama_belakang,
                 'jenis_kelamin' => $request->jenis_kelamin,
@@ -128,60 +118,20 @@ class KaryawanController extends Controller
                 'status' => $request->status,
             ]);
 
-            /*
-        |--------------------------------------------------------------------------
-        | Generate URL ID Card Berdasarkan Nama Lengkap
-        |--------------------------------------------------------------------------
-        |
-        | Contoh:
-        |
-        | Akmal Fauzan
-        |
-        | menjadi:
-        |
-        | /id-card/akmal-fauzan
-        |
-        */
-
             $namaSlug = $karyawan->slug_nama;
 
             $idCardUrl = route('karyawan.idCard', [
                 'nama_lengkap' => $namaSlug,
             ]);
 
-            /*
-        |--------------------------------------------------------------------------
-        | Generate QR Code
-        |--------------------------------------------------------------------------
-        */
-
             $qrCode = new QrCode(data: $idCardUrl, size: 300, margin: 10);
 
             $writer = new PngWriter();
-
             $result = $writer->write($qrCode);
-
-            /*
-        |--------------------------------------------------------------------------
-        | Nama File QR Code
-        |--------------------------------------------------------------------------
-        */
 
             $qrFileName = 'qrcode/karyawan/' . $namaSlug . '.png';
 
-            /*
-        |--------------------------------------------------------------------------
-        | Simpan QR Code
-        |--------------------------------------------------------------------------
-        */
-
             Storage::disk('public')->put($qrFileName, $result->getString());
-
-            /*
-        |--------------------------------------------------------------------------
-        | Update Path QR di Database
-        |--------------------------------------------------------------------------
-        */
 
             $karyawan->update([
                 'qr_code' => $qrFileName,
@@ -204,7 +154,7 @@ class KaryawanController extends Controller
     {
         $this->checkPermission('karyawan.detail');
 
-        $karyawan = Karyawan::with(['departemen'])
+        $karyawan = Karyawan::with(['departemen', 'posisi'])
             ->where('nip', $nip)
             ->firstOrFail();
 
@@ -213,7 +163,6 @@ class KaryawanController extends Controller
             'nama_depan' => $karyawan->nama_depan,
             'nama_belakang' => $karyawan->nama_belakang,
             'nip' => $karyawan->nip,
-            'jabatan' => $karyawan->jabatan,
             'email' => $karyawan->email,
             'no_hp' => $karyawan->no_hp,
             'jenis_kelamin' => $karyawan->jenis_kelamin,
@@ -221,7 +170,8 @@ class KaryawanController extends Controller
             'tgl_lahir' => $karyawan->tgl_lahir,
             'alamat' => $karyawan->alamat,
             'status' => $karyawan->status,
-            'departemen' => $karyawan->departemen->departemen ?? '-',
+            'departemen' => $karyawan->departemen?->departemen ?? '-',
+            'posisi' => $karyawan->posisi?->nama_posisi ?? '-',
             'avatar' => $karyawan->avatar ? asset('storage/' . $karyawan->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($karyawan->nama_depan . ' ' . $karyawan->nama_belakang) . '&background=1e3a8a&color=ffffff&size=256&bold=true',
             'qr_code' => $karyawan->qr_code ? asset('storage/' . $karyawan->qr_code) : asset('assets/static/avatars/default.jpg'),
         ]);
@@ -242,7 +192,6 @@ class KaryawanController extends Controller
             'nama_belakang' => $karyawan->nama_belakang,
             'email' => $karyawan->email,
             'nip' => $karyawan->nip,
-            'jabatan' => $karyawan->jabatan,
             'no_hp' => $karyawan->no_hp,
             'jenis_kelamin' => $karyawan->jenis_kelamin,
             'tempat_lahir' => $karyawan->tempat_lahir,
@@ -250,6 +199,7 @@ class KaryawanController extends Controller
             'alamat' => $karyawan->alamat,
             'status' => $karyawan->status,
             'departemen_uuid' => $karyawan->departemen_uuid,
+            'uuid_posisi' => $karyawan->uuid_posisi,
         ]);
     }
 
@@ -273,16 +223,12 @@ class KaryawanController extends Controller
 
         $validated = $request->validate([
             'departemen_uuid' => 'nullable|exists:departemens,uuid',
+            'uuid_posisi' => 'nullable|exists:posisis,uuid',
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
-
             'nip' => ['nullable', 'string', 'max:50', Rule::unique('karyawans', 'nip')->ignore($karyawan->id)],
-
             'nama_depan' => 'required|string|max:100',
             'nama_belakang' => 'nullable|string|max:100',
-
             'email' => ['required', 'email', 'max:100', Rule::unique('karyawans', 'email')->ignore($karyawan->id)],
-
-            'jabatan' => 'nullable|string|max:100',
             'no_hp' => 'nullable|string|max:20',
             'jenis_kelamin' => 'nullable|in:laki-laki,perempuan',
             'tempat_lahir' => 'nullable|string|max:100',
@@ -326,12 +272,12 @@ class KaryawanController extends Controller
 
             $karyawan->update([
                 'departemen_uuid' => $validated['departemen_uuid'] ?? null,
+                'uuid_posisi' => $validated['uuid_posisi'] ?? null,
                 'avatar' => $validated['avatar'] ?? $karyawan->avatar,
                 'nip' => $validated['nip'] ?? $karyawan->nip,
                 'nama_depan' => $validated['nama_depan'],
                 'nama_belakang' => $validated['nama_belakang'] ?? null,
                 'email' => $validated['email'],
-                'jabatan' => $validated['jabatan'] ?? null,
                 'no_hp' => $validated['no_hp'] ?? null,
                 'jenis_kelamin' => $validated['jenis_kelamin'] ?? null,
                 'tempat_lahir' => $validated['tempat_lahir'] ?? null,
@@ -449,55 +395,82 @@ class KaryawanController extends Controller
         }
     }
 
-    public function idCard(string $nama_lengkap)
-    {
-        $karyawan = Karyawan::with('departemen')
-            ->get()
-            ->first(function ($karyawan) use ($nama_lengkap) {
-                $namaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
+   public function idCard(string $nama_lengkap)
+{
+    $karyawan = Karyawan::with([
+        'departemen',
+        'posisi',
+    ])
+        ->get()
+        ->first(function ($karyawan) use ($nama_lengkap) {
+            $namaLengkap = trim(
+                ($karyawan->nama_depan ?? '') . ' ' .
+                ($karyawan->nama_belakang ?? '')
+            );
 
-                return Str::slug($namaLengkap) === $nama_lengkap;
-            });
+            return Str::slug($namaLengkap) === $nama_lengkap;
+        });
 
-        if (!$karyawan) {
-            abort(404, 'Data karyawan tidak ditemukan.');
-        }
-
-        return view('karyawan.id-card', [
-            'karyawan' => $karyawan,
-            'dataKaryawan' => $this->formatIdCardData($karyawan),
-        ]);
+    if (!$karyawan) {
+        abort(404, 'Data karyawan tidak ditemukan.');
     }
+
+    return view('karyawan.id-card', [
+        'karyawan' => $karyawan,
+        'dataKaryawan' => $this->formatIdCardData($karyawan),
+    ]);
+}
 
     private function formatIdCardData($karyawan)
-    {
-        $user = auth()->user();
+{
+    $user = auth()->user();
 
-        $bolehLihatAlamat = auth()->check() && ($user?->departemen?->kode_departemen === 'HR' || $user?->hasRole('super admin') || $user?->hasRole('admin'));
+    $bolehLihatAlamat =
+        auth()->check() &&
+        (
+            $user?->departemen?->kode_departemen === 'HR' ||
+            $user?->hasRole('super admin') ||
+            $user?->hasRole('admin')
+        );
 
-        $namaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
+    $namaLengkap = trim(
+        ($karyawan->nama_depan ?? '') . ' ' .
+        ($karyawan->nama_belakang ?? '')
+    );
 
-        return [
-            'nip' => $karyawan->nip ?? '-',
-            'nama_depan' => $karyawan->nama_depan ?? '',
-            'nama_belakang' => $karyawan->nama_belakang ?? '',
-            'namaLengkap' => $namaLengkap,
-            'slug_nama' => Str::slug($namaLengkap),
-            'jabatan' => $karyawan->jabatan ?? '-',
-            'foto' => $karyawan->avatar ? asset('storage/' . $karyawan->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($namaLengkap) . '&background=1e3a8a&color=ffffff&size=256&bold=true',
-            'email' => $karyawan->email ?? '-',
-            'departemen' => $karyawan->departemen?->departemen ?? '-',
-            'jenis_kelamin' => $karyawan->jenis_kelamin ? Str::title(str_replace('-', ' ', $karyawan->jenis_kelamin)) : '-',
-            'tempat_lahir' => $karyawan->tempat_lahir ?? '-',
-            'tgl_lahir' => $karyawan->tgl_lahir ? Carbon::parse($karyawan->tgl_lahir)->translatedFormat('d F Y') : '-',
-            'no_hp' => $karyawan->no_hp ?? '-',
-            'alamat' => $bolehLihatAlamat ? $karyawan->alamat ?? '-' : '-',
-            'boleh_lihat_alamat' => $bolehLihatAlamat,
-            'status' => $karyawan->status == 1 ? 'Aktif' : 'Nonaktif',
-            'status_class' => $karyawan->status == 1 ? 'status-active' : 'status-nonactive',
-        ];
-    }
-    
+    return [
+        'nip' => $karyawan->nip ?? '-',
+        'nama_depan' => $karyawan->nama_depan ?? '',
+        'nama_belakang' => $karyawan->nama_belakang ?? '',
+        'namaLengkap' => $namaLengkap,
+        'slug_nama' => Str::slug($namaLengkap),
+        'posisi' => $karyawan->posisi?->nama_posisi ?? '-',
+        'foto' => $karyawan->avatar
+            ? asset('storage/' . $karyawan->avatar)
+            : 'https://ui-avatars.com/api/?name=' .
+                urlencode($namaLengkap) .
+                '&background=1e3a8a&color=ffffff&size=256&bold=true',
+        'email' => $karyawan->email ?? '-',
+        'departemen' => $karyawan->departemen?->departemen ?? '-',
+        'jenis_kelamin' => $karyawan->jenis_kelamin
+            ? Str::title(str_replace('-', ' ', $karyawan->jenis_kelamin))
+            : '-',
+        'tempat_lahir' => $karyawan->tempat_lahir ?? '-',
+        'tgl_lahir' => $karyawan->tgl_lahir
+            ? Carbon::parse($karyawan->tgl_lahir)->translatedFormat('d F Y')
+            : '-',
+        'no_hp' => $karyawan->no_hp ?? '-',
+        'alamat' => $bolehLihatAlamat
+            ? ($karyawan->alamat ?? '-')
+            : '-',
+        'boleh_lihat_alamat' => $bolehLihatAlamat,
+        'status' => $karyawan->status == 1 ? 'Aktif' : 'Nonaktif',
+        'status_class' => $karyawan->status == 1
+            ? 'status-active'
+            : 'status-nonactive',
+    ];
+}
+
     public function import(Request $request)
     {
         $this->checkPermission('karyawan.import');

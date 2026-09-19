@@ -5,13 +5,14 @@ namespace App\Models;
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 class Karyawan extends Model
 {
     use HasUuid;
 
-    protected $fillable = ['uuid', 'user_uuid', 'departemen_uuid', 'avatar', 'nip', 'qr_code', 'nama_depan', 'nama_belakang', 'email', 'jabatan', 'no_hp', 'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'alamat', 'status'];
+    protected $fillable = ['uuid', 'user_uuid', 'uuid_posisi', 'departemen_uuid', 'avatar', 'nip', 'qr_code', 'nama_depan', 'nama_belakang', 'email', 'no_hp', 'jenis_kelamin', 'tempat_lahir', 'tgl_lahir', 'alamat', 'status'];
 
     protected function namaLengkap(): Attribute
     {
@@ -28,8 +29,13 @@ class Karyawan extends Model
         return $this->belongsTo(User::class, 'user_uuid');
     }
 
-    public function departemen()
+    public function departemen(): BelongsTo
     {
-        return $this->belongsTo(Departemen::class, 'departemen_uuid', 'uuid');
+        return $this->belongsTo(Departemen::class, 'uuid_departemen', 'uuid');
+    }
+
+    public function posisi(): BelongsTo
+    {
+        return $this->belongsTo(Posisi::class, 'uuid_posisi', 'uuid');
     }
 }

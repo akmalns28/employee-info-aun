@@ -4,8 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     /**
      * Run the migrations.
      */
@@ -16,6 +15,7 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->uuid('user_uuid')->nullable();
             $table->uuid('departemen_uuid')->nullable();
+            $table->uuid('uuid_posisi')->nullable();
             $table->text('qr_code')->nullable();
             $table->text('avatar')->nullable();
             $table->string('nip')->unique()->nullable();
@@ -34,6 +34,7 @@ return new class extends Migration
 
             $table->foreign('departemen_uuid')->references('uuid')->on('departemens')->cascadeOnDelete()->cascadeOnUpdate();
             $table->foreign('user_uuid')->references('uuid')->on('users')->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreign('uuid_posisi')->references('uuid')->on('posisis')->nullOnDelete();
         });
     }
 

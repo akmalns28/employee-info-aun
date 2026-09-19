@@ -14,4 +14,22 @@ class Departemen extends Model
         'kode_departemen',
         'departemen',
     ];
+
+    public function divisis()
+    {
+        return $this->hasMany(
+            Divisi::class,
+            'uuid_departemen',
+            'uuid'
+        );
+    }
+
+    public function karyawans()
+    {
+        return $this->hasMany(
+            Karyawan::class,
+            'departemen_uuid',
+            'uuid'
+        );
+    }
 }
