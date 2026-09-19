@@ -44,6 +44,11 @@ class PermissionSeeder extends Seeder
             'karyawan.import',
             'karyawan.detail',
             'karyawan.id card',
+
+            'posisi.view',
+            'posisi.create',
+            'posisi.edit',
+            'posisi.delete',
         ];
 
         foreach ($permissions as $permission) {
