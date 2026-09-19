@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\HasUuid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Divisi extends Model
 {
@@ -16,8 +17,12 @@ class Divisi extends Model
         return $this->belongsTo(Departemen::class, 'uuid_departemen', 'uuid');
     }
 
-    public function divisi()
+    public function karyawans(): HasMany
     {
-        return $this->hasMany(Divisi::class, 'divisi_uuid', 'uuid');
+        return $this->hasMany(
+            Karyawan::class,
+            'divisi_uuid',
+            'uuid'
+        );
     }
 }

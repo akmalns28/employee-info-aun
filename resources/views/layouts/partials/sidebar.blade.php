@@ -35,8 +35,8 @@
                 </li>
                 @hasanyrole(['super admin', 'admin'])
                     <li
-                        class="nav-item dropdown {{ Route::is('permissions.*', 'role.*', 'hak-akses.*', 'departemen.*', 'user.*') ? 'active' : '' }}">
-                        <a class="nav-link dropdown-toggle {{ Route::is('permissions.*', 'role.*', 'hak-akses.*', 'departemen.*', 'user.*') ? 'show' : '' }}"
+                        class="nav-item dropdown {{ Route::is('permissions.*', 'role.*', 'hak-akses.*', 'departemen.*', 'user.*','posisi.*') ? 'active' : '' }}">
+                        <a class="nav-link dropdown-toggle {{ Route::is('permissions.*', 'role.*', 'hak-akses.*', 'departemen.*', 'user.*','posisi.*') ? 'show' : '' }}"
                             href="#navbar-layout" data-bs-toggle="dropdown" data-bs-auto-close="false" role="button"
                             aria-expanded="false">
                             <span class="nav-link-icon d-md-none d-lg-inline-block">
@@ -52,7 +52,7 @@
                             <span class="nav-link-title">Data Master</span>
                         </a>
                         <div
-                            class="dropdown-menu {{ Route::is('permissions.*', 'role.*', 'hak-akses.*', 'departemen.*', 'user.*') ? 'show' : '' }}">
+                            class="dropdown-menu {{ Route::is('permissions.*', 'role.*', 'hak-akses.*', 'departemen.*', 'user.*', 'posisi.*') ? 'show' : '' }}">
                             <div class="dropdown-menu-columns">
                                 <div class="dropdown-menu-column">
                                     @php($user = auth()->user())
@@ -81,13 +81,13 @@
                                         </a>
                                     @endif
 
-                                     {{-- @if ($user->hasPermissionTo('posisi.view') || $user->hasAnyRole(['super admin'])) --}}
+                                     @if ($user->hasPermissionTo('posisi.view') || $user->hasAnyRole(['super admin']))
 
                                     <a class="dropdown-item {{ Route::is('posisi*') ? 'active' : '' }}"
                                             href="{{ route('posisi.index') }}">
                                             Posisi
                                         </a>
-                                    {{-- @endif --}}
+                                    @endif
 
                                     @if ($user->hasPermissionTo('user.view') || $user->hasAnyRole(['super admin', 'admin']))
                                         <a class="dropdown-item {{ Route::is('user*') ? 'active' : '' }}"
