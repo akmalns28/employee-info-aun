@@ -290,7 +290,7 @@
             <div class="mini-header-title">
                 Informasi Karyawan
             </div>
-            
+
             @auth
                 <div class="mini-header-actions">
                     <button type="button" id="download-pdf-button" class="btn-mini btn-download">
@@ -308,23 +308,6 @@
                 </div>
             @endauth
         </div>
-
-        @auth
-            <div class="mb-2">
-                <div class="input-icon">
-                    <input type="text" id="search" class="form-control" placeholder="Cari NIP">
-
-                    <span class="input-icon-addon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                            fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M10 10m-7 0a7 7 0 1 0 14 0a7 7 0 1 0 -14 0" />
-                            <path d="M21 21l-6 -6" />
-                        </svg>
-                    </span>
-                </div>
-                <small id="search-message" class="text-danger d-block mt-2"></small>
-            </div>
-        @endauth
 
         <div id="print-area">
             <div class="employee-card" id="employee-card" style="{{ $dataKaryawan ? '' : 'display: none;' }}">
@@ -464,29 +447,28 @@
 
     </div>
 
-    <script>
-        const searchInput = document.getElementById('search');
-        const employeeCard = document.getElementById('employee-card');
-        const searchMessage = document.getElementById('search-message');
-        const defaultData = @json($dataKaryawan);
-        const baseIdCardUrl = "{{ url('/id-card') }}";
-        const downloadPdfButton = document.getElementById('download-pdf-button');
 
-        let typingTimer = null;
+    <script>
+        const employeeCard = document.getElementById('employee-card');
+        const downloadPdfButton = document.getElementById('download-pdf-button');
 
         if (downloadPdfButton) {
             downloadPdfButton.addEventListener('click', async function() {
                 const printArea = document.getElementById('print-area');
-                const employeeName = document.getElementById('employee-name')?.textContent?.trim() ||
-                    'karyawan';
-                const employeeNip = document.getElementById('employee-nip')?.textContent?.trim() || 'id-card';
+
+                const employeeName =
+                    document.getElementById('employee-name')?.textContent?.trim() || 'karyawan';
+
+                const employeeNip =
+                    document.getElementById('employee-nip')?.textContent?.trim() || 'id-card';
 
                 if (!printArea || !employeeCard || employeeCard.style.display === 'none') {
                     return;
                 }
 
                 downloadPdfButton.disabled = true;
-                downloadPdfButton.innerHTML = '<i class="bi bi-hourglass-split"></i> Membuat PDF...';
+                downloadPdfButton.innerHTML =
+                    '<i class="bi bi-hourglass-split"></i> Membuat PDF...';
 
                 try {
                     const canvas = await html2canvas(printArea, {
@@ -507,13 +489,16 @@
                     const pageHeight = pdf.internal.pageSize.getHeight();
 
                     const margin = 8;
-                    const maxWidth = pageWidth - margin * 2;
-                    const maxHeight = pageHeight - margin * 2;
+                    const maxWidth = pageWidth - (margin * 2);
+                    const maxHeight = pageHeight - (margin * 2);
 
                     const imgWidth = canvas.width;
                     const imgHeight = canvas.height;
 
-                    const ratio = Math.min(maxWidth / imgWidth, maxHeight / imgHeight);
+                    const ratio = Math.min(
+                        maxWidth / imgWidth,
+                        maxHeight / imgHeight
+                    );
 
                     const finalWidth = imgWidth * ratio;
                     const finalHeight = imgHeight * ratio;
@@ -521,7 +506,14 @@
                     const x = (pageWidth - finalWidth) / 2;
                     const y = (pageHeight - finalHeight) / 2;
 
-                    pdf.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight);
+                    pdf.addImage(
+                        imgData,
+                        'JPEG',
+                        x,
+                        y,
+                        finalWidth,
+                        finalHeight
+                    );
 
                     const fileName = `${employeeNip}-${employeeName}`
                         .replace(/[^a-zA-Z0-9-_ ]/g, '')
@@ -529,137 +521,17 @@
 
                     pdf.save(`${fileName}.pdf`);
                 } catch (error) {
+                    console.error(error);
                     alert('Gagal membuat PDF.');
+                } finally {
+                    downloadPdfButton.disabled = false;
+                    downloadPdfButton.innerHTML =
+                        '<i class="bi bi-download"></i> Download PDF';
                 }
-
-                downloadPdfButton.disabled = false;
-                downloadPdfButton.innerHTML = '<i class="bi bi-download"></i> Download PDF';
             });
-        }
-
-        if (searchInput) {
-            searchInput.addEventListener('keyup', function() {
-                clearTimeout(typingTimer);
-
-                const nip = this.value.trim();
-
-                if (nip.length === 0) {
-                    if (searchMessage) {
-                        searchMessage.textContent = '';
-                    }
-
-                    if (defaultData) {
-                        fillEmployeeCard(defaultData);
-
-                        const defaultUrl = defaultData.nip && defaultData.nip !== '-' ?
-                            `${baseIdCardUrl}/${encodeURIComponent(defaultData.nip)}` :
-                            baseIdCardUrl;
-
-                        window.history.pushState({}, '', defaultUrl);
-                    } else {
-                        employeeCard.style.display = 'none';
-                        window.history.pushState({}, '', baseIdCardUrl);
-                    }
-
-                    return;
-                }
-
-                typingTimer = setTimeout(function() {
-                    searchEmployeeByNip(nip);
-                }, 500);
-            });
-        }
-
-        function searchEmployeeByNip(nip) {
-            fetch(`${baseIdCardUrl}?nip=${encodeURIComponent(nip)}`, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                    }
-                })
-                .then(async function(response) {
-                    const result = await response.json();
-
-                    if (!response.ok) {
-                        throw result;
-                    }
-
-                    return result;
-                })
-                .then(function(result) {
-                    if (searchMessage) {
-                        searchMessage.textContent = '';
-                    }
-
-                    fillEmployeeCard(result.data);
-
-                    window.history.pushState({},
-                        '',
-                        `${baseIdCardUrl}/${encodeURIComponent(result.data.nip)}`
-                    );
-                })
-                .catch(function(error) {
-                    if (searchMessage) {
-                        searchMessage.textContent = error.message || 'Data karyawan tidak ditemukan.';
-                    }
-                });
-        }
-
-        function fillEmployeeCard(data) {
-            employeeCard.style.display = 'block';
-
-            document.getElementById('employee-avatar').src = data.foto;
-            document.getElementById('employee-avatar').alt = `Avatar ${data.namaLengkap}`;
-            document.getElementById('employee-name').textContent = data.namaLengkap || '-';
-            document.getElementById('employee-position').textContent = data.jabatan;
-            document.getElementById('employee-email').textContent = data.email;
-            document.getElementById('employee-departemen').textContent = data.departemen;
-            document.getElementById('employee-jenis-kelamin').textContent = data.jenis_kelamin;
-            document.getElementById('employee-tempat-lahir').textContent = data.tempat_lahir;
-            document.getElementById('employee-tgl-lahir').textContent = data.tgl_lahir;
-
-            const nipElement = document.getElementById('employee-nip');
-
-            if (nipElement) {
-                nipElement.textContent = data.nip;
-            }
-
-            const noHpWrapper = document.getElementById('employee-no-hp-wrapper');
-            const noHpElement = document.getElementById('employee-no-hp');
-
-            if (noHpWrapper && noHpElement) {
-                if (data.boleh_lihat_alamat) {
-                    noHpWrapper.style.display = 'flex';
-                    noHpElement.textContent = data.no_hp;
-                } else {
-                    noHpWrapper.style.display = 'none';
-                    noHpElement.textContent = '-';
-                }
-            }
-
-            const alamatWrapper = document.getElementById('employee-alamat-wrapper');
-            const alamatElement = document.getElementById('employee-alamat');
-
-            if (alamatWrapper && alamatElement) {
-                if (data.boleh_lihat_alamat) {
-                    alamatWrapper.style.display = 'flex';
-                    alamatElement.textContent = data.alamat;
-                } else {
-                    alamatWrapper.style.display = 'none';
-                    alamatElement.textContent = '-';
-                }
-            }
-
-            const statusElement = document.getElementById('employee-status');
-
-            if (statusElement) {
-                statusElement.textContent = data.status;
-                statusElement.className = data.status_class;
-            }
         }
     </script>
+
 </body>
 
 </html>

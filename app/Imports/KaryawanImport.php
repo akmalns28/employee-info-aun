@@ -26,23 +26,16 @@ class KaryawanImport implements ToCollection, WithHeadingRow
     public function collection(Collection $rows)
     {
         foreach ($rows as $index => $row) {
-
             $rowNumber = $index + 2;
 
             try {
-
                 $tglLahir = null;
 
                 if (!empty($row['tgl_lahir'])) {
-
                     if (is_numeric($row['tgl_lahir'])) {
-                        $tglLahir = Date::excelToDateTimeObject(
-                            $row['tgl_lahir']
-                        )->format('Y-m-d');
+                        $tglLahir = Date::excelToDateTimeObject($row['tgl_lahir'])->format('Y-m-d');
                     } else {
-                        $tglLahir = Carbon::parse(
-                            $row['tgl_lahir']
-                        )->format('Y-m-d');
+                        $tglLahir = Carbon::parse($row['tgl_lahir'])->format('Y-m-d');
                     }
                 }
 
@@ -85,7 +78,7 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                         'email.required' => 'Email wajib diisi.',
                         'email.email' => 'Format email tidak valid.',
                         'jenis_kelamin.in' => 'Jenis kelamin harus laki-laki atau perempuan.',
-                    ]
+                    ],
                 );
 
                 if ($validator->fails()) {
@@ -98,24 +91,15 @@ class KaryawanImport implements ToCollection, WithHeadingRow
 
                 $departemen = null;
                 if (!empty($data['departemen'])) {
-                    $departemen = Departemen::whereRaw(
-                        'LOWER(departemen) = ?',
-                        [strtolower($data['departemen'])]
-                    )->first();
+                    $departemen = Departemen::whereRaw('LOWER(departemen) = ?', [strtolower($data['departemen'])])->first();
                 }
 
                 $status = 1;
 
                 if ($data['status'] !== '') {
-
                     $statusValue = strtolower((string) $data['status']);
 
-                    if (
-                        in_array(
-                            $statusValue,
-                            ['0', 'nonaktif', 'inactive']
-                        )
-                    ) {
+                    if (in_array($statusValue, ['0', 'nonaktif', 'inactive'])) {
                         $status = 0;
                     }
                 }
@@ -135,26 +119,79 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     'status' => $status,
                 ];
 
-                // Cari berdasarkan NIP
+                /*
+|--------------------------------------------------------------------------
+| Cari Berdasarkan NIP
+|--------------------------------------------------------------------------
+|
+| NIP tetap digunakan sebagai identifier untuk menentukan apakah
+| data import adalah INSERT atau UPDATE.
+|
+| Tetapi URL QR tidak lagi menggunakan NIP.
+|
+*/
+
                 $karyawan = Karyawan::where('nip', $data['nip'])->first();
 
                 if ($karyawan) {
+                    /*
+    |--------------------------------------------------------------------------
+    | Simpan Slug Nama Lama
+    |--------------------------------------------------------------------------
+    */
 
-                    $oldNip = $karyawan->nip;
+                    $oldNamaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
+
+                    $oldSlug = Str::slug($oldNamaLengkap);
+
+                    $oldQrPath = $karyawan->qr_code;
+
+                    /*
+    |--------------------------------------------------------------------------
+    | Update Data
+    |--------------------------------------------------------------------------
+    */
 
                     $karyawan->update($payload);
 
-                    // Regenerate QR jika NIP berubah
-                    if ($oldNip !== $data['nip']) {
+                    /*
+    |--------------------------------------------------------------------------
+    | Refresh
+    |--------------------------------------------------------------------------
+    */
 
-                        if (
-                            $karyawan->qr_code &&
-                            Storage::disk('public')->exists($karyawan->qr_code)
-                        ) {
-                            Storage::disk('public')->delete($karyawan->qr_code);
+                    $karyawan->refresh();
+
+                    $newNamaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
+
+                    $newSlug = Str::slug($newNamaLengkap);
+
+                    /*
+    |--------------------------------------------------------------------------
+    | Regenerate QR Jika Nama Berubah
+    |--------------------------------------------------------------------------
+    */
+
+                    if ($oldSlug !== $newSlug) {
+                        if ($oldQrPath && Storage::disk('public')->exists($oldQrPath)) {
+                            Storage::disk('public')->delete($oldQrPath);
                         }
 
-                        $qrPath = $this->generateQrImage($data['nip']);
+                        $qrPath = $this->generateQrImage($newNamaLengkap);
+
+                        $karyawan->update([
+                            'qr_code' => $qrPath,
+                        ]);
+                    }
+
+                    /*
+    |--------------------------------------------------------------------------
+    | Jika QR Belum Ada
+    |--------------------------------------------------------------------------
+    */
+
+                    if (!$karyawan->qr_code) {
+                        $qrPath = $this->generateQrImage($newNamaLengkap);
 
                         $karyawan->update([
                             'qr_code' => $qrPath,
@@ -162,17 +199,39 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                     }
 
                     $this->updateCount++;
-
                 } else {
+                    /*
+    |--------------------------------------------------------------------------
+    | Insert Data Baru
+    |--------------------------------------------------------------------------
+    */
 
                     $newKaryawan = Karyawan::create([
                         'uuid' => (string) Str::uuid(),
                         ...$payload,
                     ]);
 
-                    $qrPath = $this->generateQrImage(
-                        $newKaryawan->nip
-                    );
+                    /*
+    |--------------------------------------------------------------------------
+    | Nama Lengkap
+    |--------------------------------------------------------------------------
+    */
+
+                    $namaLengkap = trim(($newKaryawan->nama_depan ?? '') . ' ' . ($newKaryawan->nama_belakang ?? ''));
+
+                    /*
+    |--------------------------------------------------------------------------
+    | Generate QR Berdasarkan Nama
+    |--------------------------------------------------------------------------
+    */
+
+                    $qrPath = $this->generateQrImage($namaLengkap);
+
+                    /*
+    |--------------------------------------------------------------------------
+    | Update QR
+    |--------------------------------------------------------------------------
+    */
 
                     $newKaryawan->update([
                         'qr_code' => $qrPath,
@@ -182,59 +241,92 @@ class KaryawanImport implements ToCollection, WithHeadingRow
                 }
 
                 $this->successCount++;
-
             } catch (\Throwable $th) {
-
                 $this->errors[] = [
                     'row' => $rowNumber,
-                    'messages' => [
-                        'Gagal diproses: ' . $th->getMessage(),
-                    ],
+                    'messages' => ['Gagal diproses: ' . $th->getMessage()],
                 ];
             }
         }
     }
 
-    private function generateQrImage(string $nip): string
+    private function generateQrImage(string $namaLengkap): string
     {
-        $folder = 'upload/qrcode/karyawan';
+        /*
+    |--------------------------------------------------------------------------
+    | Folder QR
+    |--------------------------------------------------------------------------
+    */
 
-        $safeNip = $this->sanitizeFileName($nip);
+        $folder = 'qrcode/karyawan';
 
-        $fileName = $safeNip . '.png';
+        /*
+    |--------------------------------------------------------------------------
+    | Slug Nama Lengkap
+    |--------------------------------------------------------------------------
+    |
+    | Contoh:
+    |
+    | Devia Nur Julianthy
+    |
+    | menjadi:
+    |
+    | devia-nur-julianthy
+    |
+    */
+
+        $slugNama = Str::slug($namaLengkap);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Nama File
+    |--------------------------------------------------------------------------
+    */
+
+        $fileName = $slugNama . '.png';
 
         $filePath = $folder . '/' . $fileName;
+
+        /*
+    |--------------------------------------------------------------------------
+    | Buat Folder Jika Belum Ada
+    |--------------------------------------------------------------------------
+    */
 
         if (!Storage::disk('public')->exists($folder)) {
             Storage::disk('public')->makeDirectory($folder);
         }
 
-        $idCardUrl = route('karyawan.idCard', $nip);
+        /*
+    |--------------------------------------------------------------------------
+    | URL ID Card
+    |--------------------------------------------------------------------------
+    */
 
-        $qrCode = new QrCode(
-            data: $idCardUrl,
-            size: 300,
-            margin: 10
-        );
+        $idCardUrl = route('karyawan.idCard', [
+            'nama_lengkap' => $slugNama,
+        ]);
+
+        /*
+    |--------------------------------------------------------------------------
+    | Generate QR
+    |--------------------------------------------------------------------------
+    */
+
+        $qrCode = new QrCode(data: $idCardUrl, size: 300, margin: 10);
 
         $writer = new PngWriter();
 
         $result = $writer->write($qrCode);
 
-        Storage::disk('public')->put(
-            $filePath,
-            $result->getString()
-        );
+        /*
+    |--------------------------------------------------------------------------
+    | Simpan QR
+    |--------------------------------------------------------------------------
+    */
+
+        Storage::disk('public')->put($filePath, $result->getString());
 
         return $filePath;
-    }
-
-    private function sanitizeFileName(string $value): string
-    {
-        return preg_replace(
-            '/[^A-Za-z0-9\-]/',
-            '_',
-            $value
-        );
     }
 }

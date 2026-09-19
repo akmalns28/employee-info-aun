@@ -28,6 +28,7 @@ Route::middleware(['auth'])->group(function () {
     Route::resource('karyawan', KaryawanController::class)->except('create');
     Route::post('karyawan/get-all-karyawan', [KaryawanController::class, 'getAllKaryawan'])->name('karyawan.getAllKaryawan');
     Route::post('/karyawan/import', [KaryawanController::class, 'import'])->name('karyawan.import');
+    Route::post('/karyawan/import/test', [KaryawanController::class, 'testImport'])->name('karyawan.import.test');
     Route::post('/karyawan/export-qrcode', [KaryawanController::class, 'exportQrCode'])->name('karyawan.exportQrCode');
     Route::post('/karyawan/export-qrcode-zip', [KaryawanController::class, 'exportQrCodeZip'])->name('karyawan.exportQrCodeZip');
 
@@ -40,4 +41,4 @@ Route::middleware(['auth'])->group(function () {
     Route::post('role/get-all-role', [RoleController::class, 'getAllRole'])->name('role.getAllRole');
 });
 
-Route::get('/id-card/{nip?}', [KaryawanController::class, 'idCard'])->name('karyawan.idCard');
+Route::get('/id-card/{nama_lengkap}', [KaryawanController::class, 'idCard'])->name('karyawan.idCard');

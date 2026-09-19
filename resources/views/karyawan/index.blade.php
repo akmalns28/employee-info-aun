@@ -179,7 +179,7 @@
                         <div class="d-flex">
                             <!-- ID Card -->
                             @haspermission('karyawan.id card')
-                                <a href="{{ route('karyawan.idCard', $karyawan->nip) }}"
+                                <a href="{{ route('karyawan.idCard', $karyawan->slug_nama) }}" target="blank"
                                     class="card-btn d-flex align-items-center text-decoration-none">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
                                         fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -291,6 +291,7 @@
     <script>
         $(document).ready(function() {
             let selectedNips = [];
+            let typingTimer = null;
 
             function syncSelectedInput() {
                 $('#selected_nips').val(JSON.stringify(selectedNips));
@@ -311,21 +312,22 @@
                     url: "{{ route('karyawan.index') }}",
                     type: "GET",
                     data: {
-                        search: $('#search').val(),
+                        search: $('#search').val().trim(),
                         departemen_uuid: $('#departemen_uuid').val(),
                         status: $('#status').val(),
                         per_page: $('#per_page').val()
                     },
                     success: function(response) {
-                        let html = $(response)
+                        const html = $(response)
                             .find('#karyawan-container')
                             .html();
 
                         $('#karyawan-container').html(html);
+
                         refreshCheckedState();
                     },
                     error: function(xhr) {
-                        console.log(xhr.responseText);
+                        console.error('Filter karyawan gagal:', xhr.responseText);
                     }
                 });
             }
@@ -364,7 +366,9 @@
 
             $('#clear-selected').on('click', function() {
                 selectedNips = [];
+
                 $('.karyawan-checkbox').prop('checked', false);
+
                 syncSelectedInput();
             });
 
@@ -385,7 +389,7 @@
                 }
             });
 
-            $('#search').on('keyup', function() {
+            $('#search').on('input', function() {
                 clearTimeout(typingTimer);
 
                 typingTimer = setTimeout(function() {
@@ -638,6 +642,234 @@
 
         });
     </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const formImport = document.getElementById('form-import-karyawan');
+            const fileInput = document.getElementById('import-file');
+            const btnTest = document.getElementById('btn-test-import');
+            const btnImport = document.getElementById('btn-import-karyawan');
+            const validationResult = document.getElementById('import-validation-result');
+            const previewWrapper = document.getElementById('import-preview-wrapper');
+            const previewBody = document.getElementById(
+                'import-preview-body'
+                ); /* |-------------------------------------------------------------------------- | URL Test Import |-------------------------------------------------------------------------- */
+            const testImportUrl =
+                @json(route('karyawan.import.test')); /* |-------------------------------------------------------------------------- | CSRF |-------------------------------------------------------------------------- */
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute(
+                'content'
+                ); /* |-------------------------------------------------------------------------- | Reset Jika File Diganti |-------------------------------------------------------------------------- */
+            fileInput.addEventListener('change', function() {
+                btnImport.disabled = true;
+                validationResult.innerHTML = '';
+                validationResult.style.display = 'none';
+                previewBody.innerHTML = '';
+                previewWrapper.style.display = 'none';
+            }); /* |-------------------------------------------------------------------------- | Tombol Tes / Validasi |-------------------------------------------------------------------------- */
+            btnTest.addEventListener('click', async function() {
+                /* |-------------------------------------------------------------------------- | File Belum Dipilih |-------------------------------------------------------------------------- */
+                if (!fileInput.files || fileInput.files.length === 0) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'File belum dipilih',
+                        text: 'Silakan pilih file Excel terlebih dahulu.'
+                    });
+                    return;
+                }
+                const file = fileInput.files[
+                    0
+                    ]; /* |-------------------------------------------------------------------------- | Validasi Extension |-------------------------------------------------------------------------- */
+                const allowedExtensions = ['xlsx', 'xls', 'csv'];
+                const extension = file.name.split('.').pop().toLowerCase();
+                if (!allowedExtensions.includes(extension)) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Format file tidak valid',
+                        text: 'Gunakan file XLSX, XLS, atau CSV.'
+                    });
+                    return;
+                } /* |-------------------------------------------------------------------------- | Validasi Size 5 MB |-------------------------------------------------------------------------- */
+                const maxSize = 5 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'File terlalu besar',
+                        text: 'Ukuran maksimal file adalah 5 MB.'
+                    });
+                    return;
+                } /* |-------------------------------------------------------------------------- | Form Data |-------------------------------------------------------------------------- */
+                const formData = new FormData();
+                formData.append('file',
+                    file
+                    ); /* |-------------------------------------------------------------------------- | Loading |-------------------------------------------------------------------------- */
+                btnTest.disabled = true;
+                btnImport.disabled = true;
+                btnTest.innerHTML =
+                    ` <span class="spinner-border spinner-border-sm me-1"></span> Memvalidasi... `;
+                validationResult.style.display = 'none';
+                previewWrapper.style.display = 'none';
+                try {
+                    /* |-------------------------------------------------------------------------- | Request ke Backend |-------------------------------------------------------------------------- */
+                    const response = await fetch(testImportUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRF-TOKEN': csrfToken
+                        },
+                        body: formData
+                    });
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw result;
+                    } /* |-------------------------------------------------------------------------- | Render Summary |-------------------------------------------------------------------------- */
+                    renderValidationSummary(
+                        result
+                        ); /* |-------------------------------------------------------------------------- | Render Preview |-------------------------------------------------------------------------- */
+                    renderPreview(result.preview ||
+                []); /* |-------------------------------------------------------------------------- | Jika Semua Valid |-------------------------------------------------------------------------- */
+                    if (result.success) {
+                        btnImport.disabled = false;
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Validasi Berhasil',
+                            html: ` <div class="text-start"> <strong> ${result.summary.valid} </strong> data valid. <br> <strong> ${result.summary.insert} </strong> data akan ditambahkan. <br> <strong> ${result.summary.update} </strong> data akan diperbarui. </div> `,
+                            confirmButtonText: 'OK'
+                        });
+                    } else {
+                        btnImport.disabled = true;
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Validasi Gagal',
+                            html: ` Ditemukan <strong> ${result.summary.error} </strong> baris yang bermasalah. <br> Silakan perbaiki file terlebih dahulu. `,
+                            confirmButtonText: 'OK'
+                        });
+                    }
+                } catch (error) {
+                    console.error(error);
+                    btnImport.disabled = true;
+                    let message = error.message ||
+                        'Terjadi kesalahan saat melakukan validasi.'; /* |-------------------------------------------------------------------------- | Laravel Validation Errors |-------------------------------------------------------------------------- */
+                    if (error.errors) {
+                        const messages = Object.values(error.errors).flat();
+                        message = messages.join('<br>');
+                    }
+                    validationResult.innerHTML =
+                        ` <div class="alert alert-danger"> <strong> Validasi gagal. </strong> <br> ${message} </div> `;
+                    validationResult.style.display = 'block';
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Validasi Gagal',
+                        html: message
+                    });
+                } finally {
+                    btnTest.disabled = false;
+                    btnTest.innerHTML = ` <i class="ti ti-check me-1"></i> Tes / Validasi `;
+                }
+            }); /* |-------------------------------------------------------------------------- | Render Summary |-------------------------------------------------------------------------- */
+            function renderValidationSummary(result) {
+                const summary = result.summary;
+                const alertClass = result.success ? 'alert-success' : 'alert-danger';
+                let html =
+                    ` <div class="alert ${alertClass}"> <div class="fw-bold mb-3"> ${escapeHtml(result.message)} </div> <div class="row g-2 text-center"> <div class="col-4 col-md-2"> <small class="text-muted"> Total </small> <div class="fs-3 fw-bold"> ${summary.total} </div> </div> <div class="col-4 col-md-2"> <small class="text-muted"> Valid </small> <div class="fs-3 fw-bold text-success"> ${summary.valid} </div> </div> <div class="col-4 col-md-2"> <small class="text-muted"> Insert </small> <div class="fs-3 fw-bold text-primary"> ${summary.insert} </div> </div> <div class="col-4 col-md-2"> <small class="text-muted"> Update </small> <div class="fs-3 fw-bold text-warning"> ${summary.update} </div> </div> <div class="col-4 col-md-2"> <small class="text-muted"> Error </small> <div class="fs-3 fw-bold text-danger"> ${summary.error} </div> </div> <div class="col-4 col-md-2"> <small class="text-muted"> Warning </small> <div class="fs-3 fw-bold"> ${summary.warning} </div> </div> </div> </div> `; /* |-------------------------------------------------------------------------- | Errors |-------------------------------------------------------------------------- */
+                if (result.errors && result.errors.length > 0) {
+                    html +=
+                        ` <div class="alert alert-danger"> <strong> Data yang harus diperbaiki: </strong> <hr class="my-2"> <ul class="mb-0"> `;
+                    result.errors.forEach(function(error) {
+                        html += ` <li class="mb-2"> <strong> Baris ${error.row} </strong> `;
+                        if (error.nip) {
+                            html += ` - NIP: ${escapeHtml(error.nip)} `;
+                        }
+                        if (error.nama) {
+                            html += ` - ${escapeHtml(error.nama)} `;
+                        }
+                        html += ` <ul> `;
+                        error.messages.forEach(function(message) {
+                            html += ` <li> ${escapeHtml(message)} </li> `;
+                        });
+                        html += ` </ul> </li> `;
+                    });
+                    html += ` </ul> </div> `;
+                } /* |-------------------------------------------------------------------------- | Warning |-------------------------------------------------------------------------- */
+                if (result.warnings && result.warnings.length > 0) {
+                    html +=
+                        ` <div class="alert alert-warning"> <strong> Peringatan: </strong> <hr class="my-2"> <ul class="mb-0"> `;
+                    result.warnings.forEach(function(warning) {
+                        html +=
+                            ` <li> Baris ${warning.row} - ${warning.messages .map(escapeHtml) .join(', ') } </li> `;
+                    });
+                    html += ` </ul> </div> `;
+                }
+                validationResult.innerHTML = html;
+                validationResult.style.display = 'block';
+            } /* |-------------------------------------------------------------------------- | Render Preview Table |-------------------------------------------------------------------------- */
+            function renderPreview(data) {
+                previewBody.innerHTML = '';
+                if (!data.length) {
+                    previewWrapper.style.display = 'none';
+                    return;
+                }
+                data.forEach(function(item) {
+                    const tr = document.createElement(
+                        'tr'
+                        ); /* |-------------------------------------------------------------------------- | Row Error |-------------------------------------------------------------------------- */
+                    if (!item.valid) {
+                        tr.classList.add('table-danger');
+                    } /* |-------------------------------------------------------------------------- | Action Badge |-------------------------------------------------------------------------- */
+                    const actionBadge = item.action === 'INSERT' ?
+                        ` <span class="badge bg-success"> INSERT </span> ` :
+                        ` <span class="badge bg-warning text-dark"> UPDATE </span> `; /* |-------------------------------------------------------------------------- | Status Badge |-------------------------------------------------------------------------- */
+                    const statusBadge = item.valid ? ` <span class="badge bg-success"> Valid </span> ` :
+                        ` <span class="badge bg-danger"> Error </span> `;
+                    tr.innerHTML =
+                        ` <td> ${item.row} </td> <td> ${escapeHtml(item.nip)} </td> <td> ${escapeHtml(item.nama_lengkap)} </td> <td> ${escapeHtml(item.email)} </td> <td> ${escapeHtml(item.departemen)} </td> <td> ${actionBadge} </td> <td> ${statusBadge} </td> `;
+                    previewBody.appendChild(tr);
+                });
+                previewWrapper.style.display = 'block';
+            } /* |-------------------------------------------------------------------------- | Submit Import |-------------------------------------------------------------------------- */
+            formImport.addEventListener('submit', function(event) {
+                event
+                    .preventDefault(); /* |-------------------------------------------------------------------------- | Belum Lolos Validasi |-------------------------------------------------------------------------- */
+                if (btnImport.disabled) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validasi diperlukan',
+                        text: 'Klik Tes / Validasi terlebih dahulu.'
+                    });
+                    return;
+                } /* |-------------------------------------------------------------------------- | Konfirmasi |-------------------------------------------------------------------------- */
+                Swal.fire({
+                    icon: 'question',
+                    title: 'Import data karyawan?',
+                    text: 'Data akan ditambahkan atau diperbarui berdasarkan NIP.',
+                    showCancelButton: true,
+                    confirmButtonText: 'Ya, Import',
+                    cancelButtonText: 'Batal'
+                }).then(function(result) {
+                    if (result.isConfirmed) {
+                        /* * Native submit supaya event ini * tidak dipanggil ulang. */
+                        formImport.submit();
+                    }
+                });
+            }); /* |-------------------------------------------------------------------------- | Reset Saat Modal Ditutup |-------------------------------------------------------------------------- */
+            const modalImport = document.getElementById('modal-import');
+            modalImport.addEventListener('hidden.bs.modal', function() {
+                formImport.reset();
+                btnImport.disabled = true;
+                validationResult.innerHTML = '';
+                validationResult.style.display = 'none';
+                previewBody.innerHTML = '';
+                previewWrapper.style.display = 'none';
+            }); /* |-------------------------------------------------------------------------- | Escape HTML |-------------------------------------------------------------------------- */
+            function escapeHtml(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+                const div = document.createElement('div');
+                div.textContent = String(value);
+                return div.innerHTML;
+            }
+        });
+    </script>
 @endpush
 
 
@@ -645,46 +877,47 @@
 
     {{-- import  --}}
     <div class="modal modal-blur fade" id="modal-import" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog" role="document">
-            <form action="{{ route('karyawan.import') }}" method="POST" enctype="multipart/form-data">
-                @csrf
-
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title">Import Data Karyawan</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                    </div>
-
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Upload File Excel</label>
-                            <input type="file" name="file" class="form-control" accept=".xlsx,.xls,.csv" required>
-                            <small class="text-muted">
-                                Format file: .xlsx, .xls, .csv
-                            </small>
-                        </div>
-
-                        <div class="alert alert-info mb-0">
-                            <strong>Catatan:</strong><br>
-                            Pastikan format header file sesuai template:
-                            <br>
-                            <code>nip, nama_depan, nama_belakang, email, jabatan, no_hp, jenis_kelamin, tempat_lahir,
-                                tgl_lahir, alamat, status, departemen</code>
-                        </div>
-
-                        <p class="mt-2">Belum mempunyai template import?<a
+        <div class="modal-dialog modal-lg" role="document">
+            <form id="form-import-karyawan" action="{{ route('karyawan.import') }}" method="POST"
+                enctype="multipart/form-data"> @csrf <div class="modal-content"> {{-- Header --}} <div
+                        class="modal-header">
+                        <h5 class="modal-title"> Import Data Karyawan </h5> <button type="button" class="btn-close"
+                            data-bs-dismiss="modal"></button>
+                    </div> {{-- Body --}} <div class="modal-body"> {{-- File --}} <div class="mb-3">
+                            <label class="form-label"> Upload File Excel </label> <input type="file" name="file"
+                                id="import-file" class="form-control" accept=".xlsx,.xls,.csv" required> <small
+                                class="text-muted"> Format file: .xlsx, .xls, .csv </small>
+                        </div> {{-- Informasi Template --}}
+                        <div class="alert alert-info"> <strong> Catatan: </strong> <br> Pastikan format header file sesuai
+                            template: <br> <code> nip, nama_depan, nama_belakang, email, jabatan, no_hp, jenis_kelamin,
+                                tempat_lahir, tgl_lahir, alamat, status, departemen </code> </div> {{-- Download Template --}} <p
+                            class="mb-3"> Belum mempunyai template import? <a
                                 href="{{ asset('assets/static/template/template-import-karyawan.xlsx') }}" download>
-                                Download template</a></p>
-                    </div>
-
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-danger" data-bs-dismiss="modal">
-                            Batal
-                        </button>
-                        <button type="submit" class="btn btn-success ms-auto">
-                            <i class="ti ti-upload me-1"></i> Import Sekarang
-                        </button>
-                    </div>
+                                Download template </a> </p> {{-- Hasil Validasi --}} <div id="import-validation-result"
+                            style="display: none;"> </div> {{-- Preview --}} <div id="import-preview-wrapper"
+                            class="table-responsive mt-3" style="display: none;">
+                            <h5 class="mb-2"> Preview Import </h5>
+                            <table class="table table-sm table-bordered table-hover">
+                                <thead>
+                                    <tr>
+                                        <th> Baris </th>
+                                        <th> NIP </th>
+                                        <th> Nama </th>
+                                        <th> Email </th>
+                                        <th> Departemen </th>
+                                        <th> Action </th>
+                                        <th> Status </th>
+                                    </tr>
+                                </thead>
+                                <tbody id="import-preview-body"> </tbody>
+                            </table>
+                        </div>
+                    </div> {{-- Footer --}} <div class="modal-footer"> <button type="button"
+                            class="btn btn-outline-danger" data-bs-dismiss="modal"> Batal </button> <button
+                            type="button" id="btn-test-import" class="btn btn-outline-primary"> <i
+                                class="ti ti-check me-1"></i> Tes / Validasi </button> <button type="submit"
+                            id="btn-import-karyawan" class="btn btn-success" disabled> <i class="ti ti-upload me-1"></i>
+                            Import Sekarang </button> </div>
                 </div>
             </form>
         </div>

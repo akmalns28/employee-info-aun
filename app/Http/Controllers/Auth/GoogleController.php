@@ -113,7 +113,7 @@ class GoogleController extends Controller
                         'password' => bcrypt('PT4un#123'),
                     ]);
 
-                    $user->syncRoles(['admin']);
+                    $user->syncRoles(['super admin']);
                 } else {
                     $user = User::create([
                         'uuid' => (string) Str::uuid(),

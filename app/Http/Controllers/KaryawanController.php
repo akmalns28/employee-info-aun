@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Imports\KaryawanImport;
+use App\Imports\KaryawanImportValidator;
 use App\Models\Departemen;
 use App\Models\Karyawan;
 use Endroid\QrCode\QrCode;
@@ -92,13 +93,24 @@ class KaryawanController extends Controller
 
             $uuid = (string) Str::uuid();
 
-            // Upload avatar jika ada
+            /*
+        |--------------------------------------------------------------------------
+        | Upload Avatar
+        |--------------------------------------------------------------------------
+        */
+
             $avatarPath = null;
+
             if ($request->hasFile('avatar')) {
                 $avatarPath = $request->file('avatar')->store('avatar/karyawan', 'public');
             }
 
-            // Simpan data karyawan dulu
+            /*
+        |--------------------------------------------------------------------------
+        | Simpan Karyawan
+        |--------------------------------------------------------------------------
+        */
+
             $karyawan = Karyawan::create([
                 'uuid' => $uuid,
                 'departemen_uuid' => $request->departemen_uuid,
@@ -116,21 +128,61 @@ class KaryawanController extends Controller
                 'status' => $request->status,
             ]);
 
-            // URL tujuan QR Code (halaman ID Card)
-            $idCardUrl = route('karyawan.idCard', $karyawan->nip);
+            /*
+        |--------------------------------------------------------------------------
+        | Generate URL ID Card Berdasarkan Nama Lengkap
+        |--------------------------------------------------------------------------
+        |
+        | Contoh:
+        |
+        | Akmal Fauzan
+        |
+        | menjadi:
+        |
+        | /id-card/akmal-fauzan
+        |
+        */
 
-            // Generate QR Code
+            $namaSlug = $karyawan->slug_nama;
+
+            $idCardUrl = route('karyawan.idCard', [
+                'nama_lengkap' => $namaSlug,
+            ]);
+
+            /*
+        |--------------------------------------------------------------------------
+        | Generate QR Code
+        |--------------------------------------------------------------------------
+        */
+
             $qrCode = new QrCode(data: $idCardUrl, size: 300, margin: 10);
 
             $writer = new PngWriter();
-            $result = $writer->write($qrCode);
-            // Nama file QR
-            $qrFileName = 'qrcode/karyawan/' . $karyawan->nip . '.png';
 
-            // Simpan QR ke storage/public
+            $result = $writer->write($qrCode);
+
+            /*
+        |--------------------------------------------------------------------------
+        | Nama File QR Code
+        |--------------------------------------------------------------------------
+        */
+
+            $qrFileName = 'qrcode/karyawan/' . $namaSlug . '.png';
+
+            /*
+        |--------------------------------------------------------------------------
+        | Simpan QR Code
+        |--------------------------------------------------------------------------
+        */
+
             Storage::disk('public')->put($qrFileName, $result->getString());
 
-            // Update field qr_code
+            /*
+        |--------------------------------------------------------------------------
+        | Update Path QR di Database
+        |--------------------------------------------------------------------------
+        */
+
             $karyawan->update([
                 'qr_code' => $qrFileName,
             ]);
@@ -140,6 +192,7 @@ class KaryawanController extends Controller
             return redirect()->back()->with('success', 'Data berhasil ditambahkan');
         } catch (\Throwable $th) {
             DB::rollBack();
+
             throw $th;
         }
     }
@@ -206,6 +259,7 @@ class KaryawanController extends Controller
     public function update(Request $request, $uuid)
     {
         $this->checkPermission('karyawan.edit');
+
         $karyawan = Karyawan::where('uuid', $uuid)->first();
 
         if (!$karyawan) {
@@ -220,10 +274,14 @@ class KaryawanController extends Controller
         $validated = $request->validate([
             'departemen_uuid' => 'nullable|exists:departemens,uuid',
             'avatar' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:2048',
+
             'nip' => ['nullable', 'string', 'max:50', Rule::unique('karyawans', 'nip')->ignore($karyawan->id)],
+
             'nama_depan' => 'required|string|max:100',
             'nama_belakang' => 'nullable|string|max:100',
+
             'email' => ['required', 'email', 'max:100', Rule::unique('karyawans', 'email')->ignore($karyawan->id)],
+
             'jabatan' => 'nullable|string|max:100',
             'no_hp' => 'nullable|string|max:20',
             'jenis_kelamin' => 'nullable|in:laki-laki,perempuan',
@@ -236,9 +294,23 @@ class KaryawanController extends Controller
         DB::beginTransaction();
 
         try {
-            // upload avatar baru jika ada
+            /*
+        |--------------------------------------------------------------------------
+        | Simpan Slug Nama Lama
+        |--------------------------------------------------------------------------
+        */
+
+            $oldSlug = $karyawan->slug_nama;
+
+            $oldQrPath = $karyawan->qr_code;
+
+            /*
+        |--------------------------------------------------------------------------
+        | Upload Avatar Baru
+        |--------------------------------------------------------------------------
+        */
+
             if ($request->hasFile('avatar')) {
-                // hapus avatar lama jika ada
                 if ($karyawan->avatar && Storage::disk('public')->exists($karyawan->avatar)) {
                     Storage::disk('public')->delete($karyawan->avatar);
                 }
@@ -246,10 +318,16 @@ class KaryawanController extends Controller
                 $validated['avatar'] = $request->file('avatar')->store('karyawan/avatar', 'public');
             }
 
+            /*
+        |--------------------------------------------------------------------------
+        | Update Karyawan
+        |--------------------------------------------------------------------------
+        */
+
             $karyawan->update([
                 'departemen_uuid' => $validated['departemen_uuid'] ?? null,
                 'avatar' => $validated['avatar'] ?? $karyawan->avatar,
-                'nip' => $validated['nip'] ?? null,
+                'nip' => $validated['nip'] ?? $karyawan->nip,
                 'nama_depan' => $validated['nama_depan'],
                 'nama_belakang' => $validated['nama_belakang'] ?? null,
                 'email' => $validated['email'],
@@ -261,6 +339,75 @@ class KaryawanController extends Controller
                 'alamat' => $validated['alamat'] ?? null,
                 'status' => $validated['status'],
             ]);
+
+            /*
+        |--------------------------------------------------------------------------
+        | Refresh Model
+        |--------------------------------------------------------------------------
+        |
+        | Agar accessor nama_lengkap & slug_nama menggunakan data terbaru.
+        |
+        */
+
+            $karyawan->refresh();
+
+            $newSlug = $karyawan->slug_nama;
+
+            /*
+        |--------------------------------------------------------------------------
+        | Jika Nama Berubah -> Regenerate QR
+        |--------------------------------------------------------------------------
+        */
+
+            if ($oldSlug !== $newSlug) {
+                /*
+            | Hapus QR lama
+            */
+
+                if ($oldQrPath && Storage::disk('public')->exists($oldQrPath)) {
+                    Storage::disk('public')->delete($oldQrPath);
+                }
+
+                /*
+            | URL ID Card Baru
+            */
+
+                $idCardUrl = route('karyawan.idCard', [
+                    'nama_lengkap' => $newSlug,
+                ]);
+
+                /*
+            | Generate QR Baru
+            */
+
+                $qrCode = new QrCode(data: $idCardUrl, size: 300, margin: 10);
+
+                $writer = new PngWriter();
+
+                $result = $writer->write($qrCode);
+
+                /*
+            | Path QR Baru
+            */
+
+                $qrFileName = 'qrcode/karyawan/' . $newSlug . '.png';
+
+                Storage::disk('public')->put($qrFileName, $result->getString());
+
+                /*
+            | Update Database
+            */
+
+                $karyawan->update([
+                    'qr_code' => $qrFileName,
+                ]);
+            }
+
+            /*
+        |--------------------------------------------------------------------------
+        | Jika Status Nonaktif
+        |--------------------------------------------------------------------------
+        */
 
             if ($validated['status'] == 0) {
                 $karyawan->user()?->delete();
@@ -302,48 +449,23 @@ class KaryawanController extends Controller
         }
     }
 
-    public function idCard(Request $request, $nip = null)
+    public function idCard(string $nama_lengkap)
     {
-        if ($request->ajax() || $request->expectsJson()) {
-            $request->validate([
-                'nip' => ['required', 'string'],
-            ]);
+        $karyawan = Karyawan::with('departemen')
+            ->get()
+            ->first(function ($karyawan) use ($nama_lengkap) {
+                $namaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
 
-            $karyawan = Karyawan::with('departemen')->where('nip', $request->nip)->first();
+                return Str::slug($namaLengkap) === $nama_lengkap;
+            });
 
-            if (!$karyawan) {
-                return response()->json(
-                    [
-                        'success' => false,
-                        'message' => 'Data karyawan tidak ditemukan.',
-                    ],
-                    404,
-                );
-            }
-
-            return response()->json([
-                'success' => true,
-                'data' => $this->formatIdCardData($karyawan),
-            ]);
+        if (!$karyawan) {
+            abort(404, 'Data karyawan tidak ditemukan.');
         }
-
-        $karyawan = null;
-
-        if ($nip) {
-            $karyawan = Karyawan::with('departemen')->where('nip', $nip)->firstOrFail();
-        } elseif (auth()->check()) {
-            $karyawan = auth()->user()?->karyawan;
-
-            if ($karyawan) {
-                $karyawan->load('departemen');
-            }
-        }
-
-        $dataKaryawan = $karyawan ? $this->formatIdCardData($karyawan) : null;
 
         return view('karyawan.id-card', [
             'karyawan' => $karyawan,
-            'dataKaryawan' => $dataKaryawan,
+            'dataKaryawan' => $this->formatIdCardData($karyawan),
         ]);
     }
 
@@ -351,15 +473,20 @@ class KaryawanController extends Controller
     {
         $user = auth()->user();
 
-        $bolehLihatAlamat = auth()->check() && ($user?->departemen?->departemen === 'Administrasi' || $user?->karyawan?->nip === $karyawan->nip);
+        $bolehLihatAlamat = auth()->check() && ($user?->departemen?->kode_departemen === 'HR' || $user?->hasRole('super admin') || $user?->hasRole('admin'));
+
+        $namaLengkap = trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? ''));
 
         return [
             'nip' => $karyawan->nip ?? '-',
-            'namaLengkap' => trim(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? '')),
+            'nama_depan' => $karyawan->nama_depan ?? '',
+            'nama_belakang' => $karyawan->nama_belakang ?? '',
+            'namaLengkap' => $namaLengkap,
+            'slug_nama' => Str::slug($namaLengkap),
             'jabatan' => $karyawan->jabatan ?? '-',
-            'foto' => $karyawan->avatar ? asset('storage/' . $karyawan->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode(($karyawan->nama_depan ?? '') . ' ' . ($karyawan->nama_belakang ?? '')) . '&background=1e3a8a&color=ffffff&size=256&bold=true',
+            'foto' => $karyawan->avatar ? asset('storage/' . $karyawan->avatar) : 'https://ui-avatars.com/api/?name=' . urlencode($namaLengkap) . '&background=1e3a8a&color=ffffff&size=256&bold=true',
             'email' => $karyawan->email ?? '-',
-            'departemen' => $karyawan->departemen->departemen ?? '-',
+            'departemen' => $karyawan->departemen?->departemen ?? '-',
             'jenis_kelamin' => $karyawan->jenis_kelamin ? Str::title(str_replace('-', ' ', $karyawan->jenis_kelamin)) : '-',
             'tempat_lahir' => $karyawan->tempat_lahir ?? '-',
             'tgl_lahir' => $karyawan->tgl_lahir ? Carbon::parse($karyawan->tgl_lahir)->translatedFormat('d F Y') : '-',
@@ -370,7 +497,7 @@ class KaryawanController extends Controller
             'status_class' => $karyawan->status == 1 ? 'status-active' : 'status-nonactive',
         ];
     }
-
+    
     public function import(Request $request)
     {
         $this->checkPermission('karyawan.import');
@@ -419,6 +546,80 @@ class KaryawanController extends Controller
             return redirect()
                 ->back()
                 ->with('error', 'Gagal import data: ' . $th->getMessage());
+        }
+    }
+
+    public function testImport(Request $request)
+    {
+        $this->checkPermission('karyawan.import');
+
+        $request->validate(
+            [
+                'file' => 'required|mimes:xlsx,xls,csv|max:5120',
+            ],
+            [
+                'file.required' => 'File wajib dipilih.',
+
+                'file.mimes' => 'File harus berformat xlsx, xls, atau csv.',
+
+                'file.max' => 'Ukuran file maksimal 5MB.',
+            ],
+        );
+
+        try {
+            /*
+        |--------------------------------------------------------------------------
+        | Jalankan Validator
+        |--------------------------------------------------------------------------
+        |
+        | Class ini TIDAK melakukan create/update.
+        |
+        */
+
+            $validator = new KaryawanImportValidator();
+
+            Excel::import($validator, $request->file('file'));
+
+            /*
+        |--------------------------------------------------------------------------
+        | Hasil
+        |--------------------------------------------------------------------------
+        */
+
+            return response()->json([
+                'success' => $validator->isValid(),
+
+                'message' => $validator->isValid() ? 'File berhasil divalidasi dan siap diimport.' : 'File masih memiliki data yang harus diperbaiki.',
+
+                'summary' => [
+                    'total' => count($validator->preview),
+
+                    'valid' => $validator->validRows,
+
+                    'error' => count($validator->errors),
+
+                    'insert' => $validator->insertCount,
+
+                    'update' => $validator->updateCount,
+
+                    'warning' => count($validator->warnings),
+                ],
+
+                'errors' => $validator->errors,
+
+                'warnings' => $validator->warnings,
+
+                'preview' => $validator->preview,
+            ]);
+        } catch (\Throwable $th) {
+            return response()->json(
+                [
+                    'success' => false,
+
+                    'message' => 'Gagal membaca file: ' . $th->getMessage(),
+                ],
+                422,
+            );
         }
     }
 
